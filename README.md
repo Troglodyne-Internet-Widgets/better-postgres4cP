@@ -12,6 +12,9 @@ The Plan
 * Implement the "bone stock" path in the UI as well, have it be default option
   for install.
 * Testing. Lots of testing.
+* RPMification. Makefile needs to bundle shit into SOURCES and then run specfile(s) in SPECS.
+  Copy rpmbuild artifacts to dist folder or whatever.
+  Maybe a publish rule for yum repo?
 
 Other Ambitions
 ---------------

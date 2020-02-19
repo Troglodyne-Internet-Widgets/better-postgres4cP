@@ -1,0 +1,24 @@
+[%
+USE Whostmgr;
+USE JSON;
+ 
+IF locale.get_html_dir_attr() == 'rtl';
+SET rtl_bootstrap = Whostmgr.find_file_url('/3rdparty/bootstrap-rtl/optimized/dist/css/bootstrap-rtl.min.css');
+END;
+ 
+SET styleSheets = [
+    rtl_bootstrap,
+    '/libraries/fontawesome/css/font-awesome.min.css'
+];
+ 
+WRAPPER 'master_templates/master.tmpl'
+    header = locale.maketext("WHM Example Plugin")
+    stylesheets = styleSheets,
+    theme='bootstrap';
+%]
+ 
+<div class="callout callout-info">
+Test.
+</div>
+ 
+[% END %]

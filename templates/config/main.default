@@ -1,0 +1,4 @@
+# So far just mirroring what cPanel's template does.
+[% FOREACH h IN hba %]
+[% h.type %] [% h.database %] [% h.user %] [% IF h.ip.defined %] [% h.ip %] [% END %] [% IF h.mask.defined %] [% h.mask %] [% END %]  [% h.method %] [% IF h.option.defined %] [% h.option %] [% END -%]
+[% END %]
