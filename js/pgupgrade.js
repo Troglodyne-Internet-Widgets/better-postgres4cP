@@ -1,7 +1,5 @@
 function versionHandler () {
-    console.log(this.responseText);
     var obj = JSON.parse(this.responseText);
-    console.log(obj);
     if(obj.result === 1) {
         document.getElementById('psqlVersion').innerHTML = obj.data.version.major + '.' + obj.data.version.minor;
     } else {
