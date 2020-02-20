@@ -12,7 +12,7 @@ SET styleSheets = [
 ];
  
 WRAPPER 'master_templates/master.tmpl'
-    header = locale.maketext("WHM Example Plugin")
+    header = '<img src="/addon_plugins/troglophant.png"></img> ' _ locale.maketext("PostgreSQL Upgrade by ") _ '<a href="https://troglodyne.net">Troglodyne</a>'
     stylesheets = styleSheets,
     theme='bootstrap';
 %]

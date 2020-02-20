@@ -3,6 +3,7 @@ all: install
 
 install:
 	/usr/local/cpanel/3rdparty/bin/perl install/install.pl
+	chmod +x /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne/pgupgrade.cgi
 	/usr/local/cpanel/bin/register_appconfig ./plugin/better_postgres.conf
 
 uninstall:

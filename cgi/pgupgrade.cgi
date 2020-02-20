@@ -1,11 +1,14 @@
 #!/usr/local/cpanel/3rdparty/bin/perl
+#WHMADDON:better_postgres:PostgreSQL Upgrade:troglophant.png
+#ACLS:all
+
 package Troglodyne::CGI::PgUpgrade;
 
 # TODO move to lib/ and just symlink it into cgi? lol
 use strict;
 use warnings;
 
-use Cpanel::Template::Simple ();
+use Cpanel::Template ();
  
 run() unless caller();
  
