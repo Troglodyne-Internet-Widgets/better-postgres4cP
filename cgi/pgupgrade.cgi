@@ -4,7 +4,6 @@
 
 package Troglodyne::CGI::PgUpgrade;
 
-# TODO move to lib/ and just symlink it into cgi? lol
 use strict;
 use warnings;
 
