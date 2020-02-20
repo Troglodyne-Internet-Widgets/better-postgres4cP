@@ -1,24 +1,41 @@
 [%
 USE Whostmgr;
 USE JSON;
- 
+
 IF locale.get_html_dir_attr() == 'rtl';
 SET rtl_bootstrap = Whostmgr.find_file_url('/3rdparty/bootstrap-rtl/optimized/dist/css/bootstrap-rtl.min.css');
 END;
- 
+
 SET styleSheets = [
     rtl_bootstrap,
     '/libraries/fontawesome/css/font-awesome.min.css'
 ];
- 
+
 WRAPPER 'master_templates/master.tmpl'
     header = '<img src="/addon_plugins/troglophant.png"></img> ' _ locale.maketext("PostgreSQL Upgrade by ") _ '<a href="https://troglodyne.net">Troglodyne</a>'
     stylesheets = styleSheets,
     theme='bootstrap';
 %]
- 
+
+<p>
+PostgreSQL is <em>the best</em> relational database management system you can conceive of, even on cPanel systems.
+This interface allows you to upgrade your PostgreSQL server to a newer version.
+Yum and cPanel will automagically upgrade PostgreSQL installations to newer point releases (the third digit in the version string),
+as these upgrades involve little risk to your users’ data.
+Upgrades to new major releases (the first two digits in the version string) are more involved because there is a substantial risk of data loss.
+This interface at least attempts to take care of those issues for you.
+</p>
 <div class="callout callout-info">
-Test.
+    <p>Although in-place upgrades are generally safe, you should always perform a full database backup before you begin the upgrade process.</p>
+    <p>
+        Please note that downgrades to previous versions are not allowed by this software. After you upgrade your system to a newer version,
+        any consequences related to switching back are your responsibility alone.
+    </p>
 </div>
- 
+<h3>Current Version</h3>
+<p id="psqlVersion">Loading...</p>
+
+Need to add a table here ayayayayay
+
+<script type="text/javascript" src="js/pgupgrade.js"></script>
 [% END %]
