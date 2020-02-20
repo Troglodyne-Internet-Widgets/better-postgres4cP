@@ -4,9 +4,12 @@ all: install
 install:
 	/usr/local/cpanel/3rdparty/bin/perl install/install.pl
 	chmod +x /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne/pgupgrade.cgi
+	chmod +x /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne/api.cgi
 	/usr/local/cpanel/bin/register_appconfig ./plugin/better_postgres.conf
+	/usr/local/cpanel/bin/register_appconfig ./plugin/troglodyne_api.conf
 
 uninstall:
+	/usr/local/cpanel/bin/unregister_appconfig troglodyne_api
 	/usr/local/cpanel/bin/unregister_appconfig better_postgres
 	rm -rf /var/cpanel/perl/Troglodyne
 	rm -rf /var/cpanel/templates/troglodyne
