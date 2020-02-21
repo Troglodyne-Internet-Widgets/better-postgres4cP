@@ -33,9 +33,29 @@ This interface at least attempts to take care of those issues for you.
     </p>
 </div>
 <h3>Current Version</h3>
-<p id="psqlVersion">Loading...</p>
-
-Need to add a table here ayayayayay
-
+<div id="psqlVersion">Loading...</div>
+<h3>Select a Version</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Version</th>
+            <th>Features</th>
+            <th>Source</th>
+            <th>Release Date</th>
+            <th>End of Life</th>
+        </th>
+    </thead>
+    <tbody>
+        <tr>
+            <td colspan=5 id="enableReposCell" style="display: none;">
+                <div class="callout callout-info">
+                    <button class="btn btn-default" onclick="window.enableCommunityRepos()">
+                        Enable PostgreSQL Community Repositories
+                    </button>
+                </div>
+            </td>
+        </tr>
+    </tbody>
+</table>
 <script type="text/javascript" src="js/pgupgrade.js"></script>
 [% END %]
