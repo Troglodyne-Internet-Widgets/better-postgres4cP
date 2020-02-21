@@ -12,7 +12,7 @@ sub get_postgresql_versions {
     return {
         'installed_version'         => { 'major' => $ver_arr[0], 'minor' => $ver_arr[1] },
         'minimum_supported_version' => $Troglodyne::CpPostgreSQL::MINIMUM_SUPPORTED_VERSION,
-        'available_versions'        => Troglodyne::CpPostgreSQL::available_versions(),
+        'available_versions'        => \%Troglodyne::CpPostgreSQL::SUPPORTED_VERSIONS_MAP,
     };
 }
 

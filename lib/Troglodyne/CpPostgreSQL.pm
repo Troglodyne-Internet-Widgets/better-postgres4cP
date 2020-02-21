@@ -29,8 +29,4 @@ our %CP_UNSUPPORTED_VERSIONS_MAP = (
     '8.4' => { 'release' => 1246424400, 'EOL' => 1406178000 }, # Cent 6
 );
 
-sub get_available_versions {
-    
-}
-
 1;
