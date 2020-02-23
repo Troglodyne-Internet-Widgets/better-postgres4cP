@@ -35,6 +35,7 @@ This interface at least attempts to take care of those issues for you.
 <h3>Current Version</h3>
 <div id="psqlVersion">Loading...</div>
 <h3>Select a Version</h3>
+<form id="upgradeForm" name="upgradeForm" action="step2.cgi" method="GET">
 <table class="table table-striped">
     <thead>
         <tr>
@@ -57,5 +58,7 @@ This interface at least attempts to take care of those issues for you.
         </tr>
     </tbody>
 </table>
+<input id="submit" name="submit" type="submit" value="Maximum GO"></input>
+</form>
 <script type="text/javascript" src="js/pgupgrade.js"></script>
 [% END %]
