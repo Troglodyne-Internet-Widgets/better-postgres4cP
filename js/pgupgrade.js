@@ -35,6 +35,7 @@ function versionHandler () {
     </td>
 </tr>`;
         }
+        document.getElementById('loadingCell').remove();
         document.querySelector('#upgradeForm > table > tbody').innerHTML = rows;
     } else {
         console.log(obj.error);

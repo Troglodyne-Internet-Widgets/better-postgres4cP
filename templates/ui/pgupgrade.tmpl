@@ -33,31 +33,27 @@ This interface at least attempts to take care of those issues for you.
     </p>
 </div>
 <h3>Current Version</h3>
-<div id="psqlVersion">Loading...</div>
+<div id="psqlVersion">Loading... <span class="fa fa-spin fa-spinner"></span></div>
 <h3>Select a Version</h3>
-<form id="upgradeForm" name="upgradeForm" action="step2.cgi" method="GET">
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Version</th>
-            <th>Features</th>
-            <th>Release Date</th>
-            <th>End of Life</th>
-        </th>
-    </thead>
-    <tbody>
-        <tr>
-            <td colspan=5 id="enableReposCell" style="display: none;">
-                <div class="callout callout-info">
-                    <button class="btn btn-default" onclick="window.enableCommunityRepos()">
-                        Enable PostgreSQL Community Repositories
-                    </button>
-                </div>
-            </td>
-        </tr>
-    </tbody>
-</table>
-<input id="submit" name="submit" class="btn btn-success" type="submit" value="Continue" title="Please select a version above to continue"></input>
+<form id="upgradeForm" name="upgradeForm" action="pgupgrade.cgi" method="GET">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Version</th>
+                <th>Features</th>
+                <th>Release Date</th>
+                <th>End of Life</th>
+            </th>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan=5 id="loadingCell">
+                    Loading... <span class="fa fa-spin fa-spinner"></span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <input id="submit" name="submit" class="btn btn-success" type="submit" value="Continue" title="Please select a version above to continue"></input>
 </form>
 <script type="text/javascript" src="js/pgupgrade.js"></script>
 [% END %]

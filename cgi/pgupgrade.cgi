@@ -7,11 +7,19 @@ package Troglodyne::CGI::PgUpgrade;
 use strict;
 use warnings;
 
-use Cpanel::Template ();
+use Cpanel::Template           ();
+use Cpanel::LoadModule::Custom ();
  
 run() unless caller();
  
 sub run {
+    Cpanel::LoadModule::Custom::load_perl_module("Troglodyne::CGI");
+    my $args = Troglodyne::CGI::get_args();
+    my $tmpl = 'pgupgrade';
+    if( $args->{'version'} ) {
+        $tmpl = 'pginstall';
+    }
+
     print "Content-type: text/html\r\n\r\n";
     Cpanel::Template::process_template(
         'whostmgr',
@@ -20,6 +28,7 @@ sub run {
             'print'         => 1,
         }
     );
+
     exit;
 }
 
