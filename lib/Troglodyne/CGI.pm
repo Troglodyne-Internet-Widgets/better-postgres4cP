@@ -10,6 +10,8 @@ sub get_args {
 }
 
 # Yay. I now have ~250ms pageloads instead of 350+ms pageloads.
+# XXX Need to check when the chrome updates and pop cache then too?
+# Maybe upcp hook instead?
 sub render_cached_or_process_template {
     my ( $service, $input_hr ) = @_;
     if( $input_hr->{'troglodyne_do_static_render'} ) {
@@ -65,6 +67,7 @@ sub render_from_cache {
     }
     return $worked;
 }
+
 our $ULC = '/usr/local/cpanel';
 our %TMPL_DIRS_BY_SVC = (
     'whostmgr' => 'whostmgr/docroot/templates',
