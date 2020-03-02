@@ -11,12 +11,12 @@ SET styleSheets = [
 ];
 
 WRAPPER 'master_templates/master.tmpl'
-    header = locale.maketext("PostgreSQL Upgrade by ") _ '<a href="https://troglodyne.net">Troglodyne</a>'
+    header = locale.maketext("PostgreSQL Upgrade"),
     stylesheets = styleSheets,
     theme='bootstrap',
     icon='/addon_plugins/troglophant.png';
 %]
-
+<h3>Brought to you by <a href="https://troglodyne.net">Troglodyne</a></h3>
 <p>
 PostgreSQL is <em>the best</em> relational database management system you can conceive of, even on cPanel systems.
 This interface allows you to upgrade your PostgreSQL server to a newer version.
