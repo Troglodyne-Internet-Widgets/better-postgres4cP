@@ -47,3 +47,9 @@ var oReq = new XMLHttpRequest();
 oReq.addEventListener("load", versionHandler);
 oReq.open("GET", "api.cgi?module=Postgres&function=get_postgresql_versions");
 oReq.send();
+
+window.doUpgrade = function (form) {
+    console.log(form.get('selectedVersion'));
+    // TODO Replace table with upgrade biewer after doing xhr
+    return false;
+}

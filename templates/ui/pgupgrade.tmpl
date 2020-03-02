@@ -14,6 +14,20 @@ WRAPPER 'master_templates/master.tmpl'
     header = locale.maketext("PostgreSQL Upgrade"),
     stylesheets = styleSheets,
     theme='bootstrap',
+    breadcrumbdata= {
+        previous = [
+            {
+                name = "Home",
+                url  = "/scripts/command?PFILE=main",
+            },
+            {
+                name = "Plugins",
+                url  = "/scripts/command?PFILE=Plugins",
+            },
+        ],
+        name = 'PostgreSQL Upgrade',
+        url = '/cgi/troglodyne/pgupgrade.cgi',
+    },
     icon='/addon_plugins/troglophant.png';
 %]
 <h3>Brought to you by <a href="https://troglodyne.net">Troglodyne</a></h3>
@@ -35,7 +49,7 @@ This interface at least attempts to take care of those issues for you.
 <h3>Current Version</h3>
 <div id="psqlVersion">Loading... <span class="fa fa-spin fa-spinner"></span></div>
 <h3>Select a Version</h3>
-<form id="upgradeForm" name="upgradeForm" action="pgupgrade.cgi" method="GET">
+<form id="upgradeForm" name="upgradeForm">
     <table class="table table-striped">
         <thead>
             <tr>
@@ -53,7 +67,7 @@ This interface at least attempts to take care of those issues for you.
             </tr>
         </tbody>
     </table>
-    <input id="submit" name="submit" class="btn btn-success" type="submit" value="Continue" title="Please select a version above to continue"></input>
 </form>
+<button id="submit" class="btn btn-success" title="Please select a version above to continue" onclick="window.doUpgrade(new FormData(upgradeForm));">Continue</button>
 <script type="text/javascript" src="js/pgupgrade.js"></script>
 [% END %]
