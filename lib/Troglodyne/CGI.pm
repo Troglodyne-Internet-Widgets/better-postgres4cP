@@ -9,6 +9,10 @@ sub get_args {
     return $args_hr;
 }
 
+
+# XXX TODO TODO TODO Need to make API calls return 304 unmodified if the data is
+# unchanged! hehehe
+
 # Yay. I now have ~250ms pageloads instead of 350+ms pageloads.
 # XXX Need to check when the chrome updates and pop cache then too?
 # Maybe upcp hook instead?
