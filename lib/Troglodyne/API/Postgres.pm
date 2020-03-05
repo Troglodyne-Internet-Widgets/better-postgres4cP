@@ -18,7 +18,30 @@ sub get_postgresql_versions {
 
 sub enable_community_repositories {
     Cpanel::LoadModule::Custom::load_perl_module('Troglodyne::CpPostgreSQL');
-    return { 'status' => 'OK' };
+    require Cpanel::Sys::OS;
+    my $centos_ver = substr( Cpanel::Sys::OS::getreleaseversion(), 0, 1 );
+    my $repo_rpm_url = $Troglodyne::CpPostgreSQL::REPO_RPM_URLS{$centos_ver};
+   
+    # TODO Use Cpanel::SafeRun::Object to run the install? 
+    require Capture::Tiny;
+    my @cmd = qw{/bin/rpm -q pgdg-redhat-repo};
+    my ( $stdout, $stderr, $ret ) = Capture::Tiny::capture( sub {
+        system(@cmd);
+    });
+    my $installed = !$ret;
+    if( !$installed ) {
+        @cmd = qw{/bin/rpm -i}, $repo_rpm_url;
+        ( $stdout, $stderr, $ret ) = Capture::Tiny::capture( sub {
+            system(@cmd);
+        } );
+    }
+    return {
+        'last_yum_command'  => join( " ", @cmd ),
+        'already_installed' => $installed,
+        'stdout'            => $stdout,
+        'stderr'            => $stderr,
+        'exit_code'         => $ret,
+    };
 }
 
 1;

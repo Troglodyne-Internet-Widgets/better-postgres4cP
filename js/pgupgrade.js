@@ -1,3 +1,12 @@
+function doAsyncRequest (mod, func, handler) {
+    'use strict';
+    var oReq = new XMLHttpRequest();
+    oReq.addEventListener("load", handler);
+    oReq.open("GET", `api.cgi?module=${mod}&function=${func}`);
+    oReq.send();
+    return false;
+}
+
 function versionHandler () {
     'use strict';
     let obj = JSON.parse(this.responseText);
@@ -42,14 +51,13 @@ function versionHandler () {
     }
 }
 
-document.getElementById('submit').disabled = true;
-var oReq = new XMLHttpRequest();
-oReq.addEventListener("load", versionHandler);
-oReq.open("GET", "api.cgi?module=Postgres&function=get_postgresql_versions");
-oReq.send();
-
 window.doUpgrade = function (form) {
+    'use strict';
     console.log(form.get('selectedVersion'));
     // TODO Replace table with upgrade biewer after doing xhr
     return false;
 }
+
+// Now kickoff the page load post bits
+document.getElementById('submit').disabled = true;
+doAsyncRequest ('Postgres', 'get_postgresql_versions', versionHandler);
