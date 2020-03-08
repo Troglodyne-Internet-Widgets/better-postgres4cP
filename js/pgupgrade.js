@@ -78,8 +78,9 @@ function doInstallScroller () {
     return false;
 }
 
-window.doUpgrade = function (form) {
+window.doUpgrade = function () {
     'use strict';
+    let form = new FormData(upgradeForm);
     window.selectedVersion = form.get('selectedVersion');
     document.getElementById('upgradeTitle').textContent = "Install Progress for PostgreSQL " + window.selectedVersion;
     let submitBtn = document.getElementById('submit');
