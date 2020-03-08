@@ -1,4 +1,4 @@
-function doAsyncRequest (mod, func, handler) {
+function doAPIRequestWithCallback (mod, func, handler) {
     'use strict';
     var oReq = new XMLHttpRequest();
     oReq.addEventListener("load", handler);
@@ -51,13 +51,45 @@ function versionHandler () {
     }
 }
 
+function doInstallScroller () {
+    'use strict';
+    let obj = JSON.parse(this.responseText);
+    let upgradeWell = document.getElementById('upgradeWell');
+    let submitBtn = document.getElementById('submit');
+    if(obj.result === 1) {
+        if(obj.data.exit_code !== 0) {
+            upgradeWell.textContent += obj.data.last_yum_command + " reported nonzero exit code (" + obj.data.exit_code + "):\n[STDOUT] " + obj.data.stdout + "\n[STDERR] " + obj.data.stderr;
+            submitBtn.textContent = 'Re-Try';
+            submitBtn.disabled = false;
+            return false;
+        }
+        if(obj.data.already_installed) {
+            upgradeWell.textContent += obj.data.last_yum_command + " reports the community repository is already installed: " + obj.data.stdout;
+        } else {
+            upgradeWell.textContent += obj.data.last_yum_command + "\n" + obj.data.stdout;
+        }
+        // Ok, now kick off actual install TODO use WebSocket?
+        upgradeWell.textContent += "\nNow proceeding with install of PostgreSQL " + window.selectedVersion + "...\n";
+    } else {
+         upgradeWell.textContent += "Installlation of community repositories failed:" + obj.reason;
+         submitBtn.textContent = 'Re-Try';
+         submitBtn.disabled = false;
+    }
+    return false;
+}
+
 window.doUpgrade = function (form) {
     'use strict';
-    console.log(form.get('selectedVersion'));
-    // TODO Replace table with upgrade biewer after doing xhr
+    window.selectedVersion = form.get('selectedVersion');
+    document.getElementById('upgradeTitle').textContent = "Install Progress for PostgreSQL " + window.selectedVersion;
+    let submitBtn = document.getElementById('submit');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="fa fa-spin fa-spinner"></span>';
+    document.getElementById('upgradeDiv').innerHTML = '<pre id="upgradeWell" class="well">Ensuring that the PostgreSQL Community repository is installed...\n</pre>';
+    doAPIRequestWithCallback('Postgres', 'enable_community_repositories', doInstallScroller );
     return false;
 }
 
 // Now kickoff the page load post bits
 document.getElementById('submit').disabled = true;
-doAsyncRequest ('Postgres', 'get_postgresql_versions', versionHandler);
+doAPIRequestWithCallback('Postgres', 'get_postgresql_versions', versionHandler);
