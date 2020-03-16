@@ -18,7 +18,7 @@ function versionHandler () {
         let html = `<strong>${pgVersion}</strong>`;
         if( parseFloat(pgVersion) < parseFloat(obj.data.minimum_supported_version) ) {
             elem.classList.add('callout', 'callout-danger');
-            html += " -- You are using a version of PostgreSQL Server that is no longer supported! Immediate upgrade reccomended.";
+            html += " -- You are using a version of PostgreSQL Server that is no longer supported! Immediate upgrade recommended.";
         }
         elem.innerHTML = html;
 
