@@ -60,5 +60,5 @@ rpm:
 	cp $(pwd)/Makefile SOURCES/BetterPostgres4cP-1.0/Makefile
 	cp $(pwd)/configure SOURCES/BetterPostgres4cP-1.0/configure
 	cd SOURCES && tar --exclude="*.swp" --exclude="*.swn" --exclude="*.swo" -ch BetterPostgres4cP-1.0 | gzip > ~/rpmbuild/SOURCES/BetterPostgres4cP-1.0.tar.gz
-	rpmbuild -ba --clean SPECS/BetterPostgres.spec
+	rpmbuild -ba --clean --target noarch SPECS/BetterPostgres.spec
 	rm -rf SOURCES/*
