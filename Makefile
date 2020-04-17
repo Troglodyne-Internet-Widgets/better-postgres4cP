@@ -11,7 +11,7 @@ all: install register
 
 install:
 	mkdir -p $(DESTDIR)$(ulc)$(tmpl)/ui $(DESTDIR)$(ulc)$(tmpl)/config $(DESTDIR)$(ulc)$(cgi)/js $(DESTDIR)$(ulc)$(cgi)/img $(DESTDIR)$(vcp)/Troglodyne/CGI $(DESTDIR)$(vcp)/Troglodyne/API $(DESTDIR)$(vca) $(DESTDIR)$(vct)/troglodyne/config
-	install $(pwd)/templates/ui/pgupgrade.tmpl $(DESTDIR)$(ulc)$(tmpl)/ui
+	install $(pwd)/templates/ui/pgupgrade.tmpl $(DESTDIR)$(ulc)$(tmpl)
 	install $(pwd)/templates/config/main.default $(DESTDIR)$(vct)/troglodyne/config
 	install $(pwd)/js/pgupgrade.js $(DESTDIR)$(ulc)$(cgi)/js
 	install $(pwd)/img/troglophant.png $(DESTDIR)$(ulc)$(cgi)/img
