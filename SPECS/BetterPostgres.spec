@@ -31,11 +31,12 @@ make install DESTDIR=%{buildroot}
 %defattr(0700,root,root,-)
 /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne/pgupgrade.cgi
 /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne/api.cgi
+%defattr(0600,root,root,-)
 /usr/local/cpanel/whostmgr/docroot/templates/troglodyne/pgupgrade.tmpl
 /var/cpanel/templates/troglodyne/config/main.default
 /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne/js/pgupgrade.js
 /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne/img/troglophant.png
-%defattr(0600,root,root,-)
+/usr/local/cpanel/whostmgr/docroot/addon_plugins/troglophant.png
 /var/cpanel/perl/Troglodyne/CGI/PgUpgrade.pm
 /var/cpanel/perl/Troglodyne/CGI/API.pm
 /var/cpanel/perl/Troglodyne/CpPostgreSQL.pm
