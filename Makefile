@@ -1,10 +1,34 @@
-.PHONY: all install test uninstall
-all: install
+ulc  = /usr/local/cpanel
+tmpl = /whostmgr/docroot/templates/troglodyne
+cgi  = /whostmgr/docroot/cgi/troglodyne
+vcp  = /var/cpanel/perl
+vca  = /var/cpanel/apps
+vct  = /var/cpanel/templates
+pwd  = $(shell pwd)
+ 
+.PHONY: all install register test uninstall rpm
+all: install register
 
 install:
-	/usr/local/cpanel/3rdparty/bin/perl install/install.pl
-	chmod +x /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne/pgupgrade.cgi
-	chmod +x /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne/api.cgi
+	mkdir -p $(DESTDIR)$(ulc)$(tmpl)/ui $(DESTDIR)$(ulc)$(tmpl)/config $(DESTDIR)$(ulc)$(cgi)/js $(DESTDIR)$(ulc)$(cgi)/img $(DESTDIR)$(vcp)/Troglodyne/CGI $(DESTDIR)$(vcp)/Troglodyne/API $(DESTDIR)$(vca) $(DESTDIR)$(vct)/troglodyne/config
+	install $(pwd)/templates/ui/pgupgrade.tmpl $(DESTDIR)$(ulc)$(tmpl)/ui
+	install $(pwd)/templates/config/main.default $(DESTDIR)$(vct)/troglodyne/config
+	install $(pwd)/js/pgupgrade.js $(DESTDIR)$(ulc)$(cgi)/js
+	install $(pwd)/img/troglophant.png $(DESTDIR)$(ulc)$(cgi)/img
+	install $(pwd)/cgi/pgupgrade.cgi $(DESTDIR)$(ulc)$(cgi)
+	install $(pwd)/cgi/api.cgi $(DESTDIR)$(ulc)$(cgi)
+	install $(pwd)/lib/Troglodyne/CGI/PgUpgrade.pm $(DESTDIR)$(vcp)/Troglodyne/CGI
+	install $(pwd)/lib/Troglodyne/CGI/API.pm $(DESTDIR)$(vcp)/Troglodyne/CGI
+	install $(pwd)/lib/Troglodyne/CpPostgreSQL.pm $(DESTDIR)$(vcp)/Troglodyne
+	install $(pwd)/lib/Troglodyne/API/Postgres.pm $(DESTDIR)$(vcp)/Troglodyne/API
+	install $(pwd)/lib/Troglodyne/CGI.pm $(DESTDIR)$(vcp)/Troglodyne
+	install $(pwd)/plugin/troglodyne_api.conf $(DESTDIR)$(vca)
+	install $(pwd)/plugin/better_postgres.conf $(DESTDIR)$(vca)
+	chmod 0755 $(DESTDIR)$(vca)
+	chmod +x $(DESTDIR)$(ulc)$(cgi)/pgupgrade.cgi
+	chmod +x $(DESTDIR)$(ulc)$(cgi)/api.cgi
+
+register:
 	/usr/local/cpanel/bin/register_appconfig ./plugin/better_postgres.conf
 	/usr/local/cpanel/bin/register_appconfig ./plugin/troglodyne_api.conf
 
@@ -24,17 +48,17 @@ test:
 rpm:
 	rm -rf SOURCES/*
 	mkdir -p SOURCES/BetterPostgres4cP-1.0
-	ln -s $(shell pwd)/bin SOURCES/BetterPostgres4cP-1.0/bin
-	ln -s $(shell pwd)/cgi SOURCES/BetterPostgres4cP-1.0/cgi
-	ln -s $(shell pwd)/img SOURCES/BetterPostgres4cP-1.0/img
-	ln -s $(shell pwd)/install SOURCES/BetterPostgres4cP-1.0/install
-	ln -s $(shell pwd)/js SOURCES/BetterPostgres4cP-1.0/js
-	ln -s $(shell pwd)/lib SOURCES/BetterPostgres4cP-1.0/lib
-	ln -s $(shell pwd)/plugin SOURCES/BetterPostgres4cP-1.0/plugin
-	ln -s $(shell pwd)/t SOURCES/BetterPostgres4cP-1.0/t
-	ln -s $(shell pwd)/templates SOURCES/BetterPostgres4cP-1.0/templates
-	cp $(shell pwd)/Makefile SOURCES/BetterPostgres4cP-1.0/Makefile
-	cp $(shell pwd)/configure SOURCES/BetterPostgres4cP-1.0/configure
+	ln -s $(pwd)/bin SOURCES/BetterPostgres4cP-1.0/bin
+	ln -s $(pwd)/cgi SOURCES/BetterPostgres4cP-1.0/cgi
+	ln -s $(pwd)/img SOURCES/BetterPostgres4cP-1.0/img
+	ln -s $(pwd)/install SOURCES/BetterPostgres4cP-1.0/install
+	ln -s $(pwd)/js SOURCES/BetterPostgres4cP-1.0/js
+	ln -s $(pwd)/lib SOURCES/BetterPostgres4cP-1.0/lib
+	ln -s $(pwd)/plugin SOURCES/BetterPostgres4cP-1.0/plugin
+	ln -s $(pwd)/t SOURCES/BetterPostgres4cP-1.0/t
+	ln -s $(pwd)/templates SOURCES/BetterPostgres4cP-1.0/templates
+	cp $(pwd)/Makefile SOURCES/BetterPostgres4cP-1.0/Makefile
+	cp $(pwd)/configure SOURCES/BetterPostgres4cP-1.0/configure
 	cd SOURCES && tar --exclude="*.swp" --exclude="*.swn" --exclude="*.swo" -ch BetterPostgres4cP-1.0 | gzip > ~/rpmbuild/SOURCES/BetterPostgres4cP-1.0.tar.gz
 	rpmbuild -ba --clean SPECS/BetterPostgres.spec
 	rm -rf SOURCES/*
