@@ -40,9 +40,16 @@ sub run {
         },
     };
     if( $loaded && $coderef ) {
-        my $data = $coderef->();
-        $ret->{'data'} = $data;
-        $ret->{'result'} = 1;
+        local $@;
+        my $data = eval { $coderef->() };
+        my $error = $@;
+        if($data) {
+            $ret->{'data'} = $data;
+            $ret->{'result'} = 1;
+        } else {
+            $ret->{'result'} = 0;
+            $ret->{'error'} = $error;
+        }
     } elsif( !$coderef ) {
         $ret->{'error'} = "No such function '$args->{'function'}' in $namespace";
         $ret->{'result'} = 0;
