@@ -1,8 +1,14 @@
-function doAPIRequestWithCallback (mod, func, handler) {
+function doAPIRequestWithCallback (mod, func, handler, args) {
     'use strict';
-    var oReq = new XMLHttpRequest();
+    let oReq = new XMLHttpRequest();
     oReq.addEventListener("load", handler);
-    oReq.open("GET", `api.cgi?module=${mod}&function=${func}`);
+    let argstr = ''; 
+    if( typeof args === 'Object' ) {
+        Object.keys(args).forEach( function(argument) {
+            argstr += `&${argument}=${args[argument]}`;
+        });
+    }
+    oReq.open("GET", `api.cgi?module=${mod}&function=${func}${argstr}`);
     oReq.send();
     return false;
 }
@@ -11,6 +17,7 @@ function versionHandler () {
     'use strict';
     let obj = JSON.parse(this.responseText);
     if(obj.result === 1) {
+        console.log(obj);
 
         // Construct version warning/display
         let pgVersion = obj.data.installed_version.major + '.' + obj.data.installed_version.minor;
@@ -18,7 +25,14 @@ function versionHandler () {
         let html = `<strong>${pgVersion}</strong>`;
         if( parseFloat(pgVersion) < parseFloat(obj.data.minimum_supported_version) ) {
             elem.classList.add('callout', 'callout-danger');
-            html += " -- You are using a version of PostgreSQL Server that is no longer supported! Immediate upgrade recommended.";
+            html += ' -- You are using a version of PostgreSQL Server that is no longer supported by ';
+            html += '<a href="https://www.postgresql.org/support/versioning/" title="PostgreSQL Supported versions page">postgresql.org</a>!<br>';
+            if( obj.data.eol_versions.hasOwnProperty(pgVersion) ) {
+                console.log(obj.data.eol_versions[pgVersion]);
+                console.log(obj.data.eol_versions[pgVersion].EOL);
+                html += "<strong>EOL</strong> -- " + new Date(obj.data.eol_versions[pgVersion].EOL * 1000).toLocaleString( undefined, { year: 'numeric', month: 'long', day: 'numeric' } ) + "<br>";
+            }
+            html += "<strong>Immediate upgrade is recommended.</strong>";
         }
         elem.innerHTML = html;
 
@@ -88,6 +102,9 @@ window.doUpgrade = function () {
     submitBtn.innerHTML = '<span class="fa fa-spin fa-spinner"></span>';
     document.getElementById('upgradeDiv').innerHTML = '<pre id="upgradeWell" class="well">Ensuring that the PostgreSQL Community repository is installed...\n</pre>';
     doAPIRequestWithCallback('Postgres', 'enable_community_repositories', doInstallScroller );
+    let versionSelectedElem = document.querySelector('input[name="selectedVersion"]:checked');
+    let version2install = versionSelectedElem.value;
+    doAPIRequestWithCallback( 'Postgres', 'install_postgres', doInstallScroller, { "version": "9.5" } );
     return false;
 }
 
