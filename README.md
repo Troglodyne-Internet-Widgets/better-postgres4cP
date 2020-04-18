@@ -27,6 +27,13 @@ Two methods exist for accomplishing installs.
 * To uninstall:
 `make uninstall`
 
+What do I do if I need help?
+----------------------------
+Go check out our FAQ/KB page [here](https://troglodyne.net/better-postgres-for-cpanel/).
+If you can't find the answers you need, feel free to drop an issue in the tracker.
+
+...and last of all, see license terms.
+
 TODO
 ----
 * Finish install.
@@ -39,8 +46,3 @@ Other Ambitions
 ---------------
 Why not bring other useful extensions to postgres (like PostGIS)?
 Why not facilitate clustering or at least PG connection pooling & remote PGSQL?
-
-Copyright
----------
-For now, this code is Copyright 2020 Thomas A. Baugh.
-Unauthorized copying is prohibited until such time I consider re-licensing this code.
