@@ -5,21 +5,40 @@ This Plugin aims to bring extended support for more recent PostgreSQL versions t
 The approach is very similar to what already exists for MySQL -- we will be installing from
 community repositories which already build the server for CentOS.
 
-The Plan
---------
-* Add UI page for facilitating upgrades. Mimic the MySQL/MariaDB upgrade page,
-  as this is what customers would expect.
-* Implement the "bone stock" path in the UI as well, have it be default option
-  for install.
-* Testing. Lots of testing.
-* RPMification. Makefile needs to bundle shit into SOURCES and then run specfile(s) in SPECS.
-  Copy rpmbuild artifacts to dist folder or whatever.
-  Maybe a publish rule for yum repo?
+INSTALLING
+----------
+Two methods exist for accomplishing installs.
+### End user (stable) installs:
+* Install the RPM:
+`rpm -ivh $URL_I_HAVENT_GOT_YET_FOR_THE_RPM_RELEASE_HAHAHAHA`
+* Enjoy. There should now be a "PostgreSQL Upgrade" page within WHM now for root under the 'Plugins' section.
+* To uninstall:
+`rpm -evh BetterPostgres4cP`
+* To update to a newer version:
+`rpm -Uvh $URL_I_HAVENT_GOT_YET_ROT_THE_RPM_RELEASE_HAHAHAHAH`
+
+### Developer install:
+* Clone the repository using the link in github:
+`git clone https://github.com/Troglodyne-Internet-Widgets/better-postgres4cP.git`
+* Move into the directory it cloned this to:
+`cd better-postgres4cp`
+* Run the makefile:
+`make`
+* To uninstall:
+`make uninstall`
+
+TODO
+----
+* Finish install.
+* Ensure cpanel-ccs-calendarserver is compatible with all versions you can upgrade to.
+* Testing. Lots of testing. Likely compatibility shims once upgraded.
+* Copy rpmbuild artifacts to dist folder or whatever.
+* Maybe a publish rule for yum repo?
 
 Other Ambitions
 ---------------
 Why not bring other useful extensions to postgres (like PostGIS)?
-Why not facilitate clustering or at least PG connection pooling?
+Why not facilitate clustering or at least PG connection pooling & remote PGSQL?
 
 Copyright
 ---------
