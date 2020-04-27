@@ -41,7 +41,7 @@ sub run {
     };
     if( $loaded && $coderef ) {
         local $@;
-        my $data = eval { $coderef->() };
+        my $data = eval { $coderef->($args) };
         my $error = $@;
         if($data) {
             $ret->{'data'} = $data;

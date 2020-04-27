@@ -45,4 +45,24 @@ sub enable_community_repositories {
     };
 }
 
+sub start_postgres_install {
+    my ( $args_hr ) = @_;
+    my $version = $args_hr->{'version'};
+    my $dir = '/var/cpanel/logs/troglodyne/pgupgrade'
+    require Cpanel::Mkdir;
+    Cpanel::Mkdir::ensure_directory_existence_and_mode( $dir, 0711 );
+
+    require Cpanel::FileUtils::Touch;
+    my $time = time;
+    Cpanel::FileUtils::Touch::touch_if_not_exists("$dir/pgupgrade-to-$version-at-$time.log");
+    
+    require Cpanel::Autodie;
+    Cpanel::Autodie::unlink_if_exists("$dir/last");
+    require Cpanel::Chdir;
+    {
+        my $chdir = Cpanel::Chdir->new($dir);
+        symlink( "pgupgrade-to-$version-at-$time.log", "last" );
+    }
+}
+
 1;

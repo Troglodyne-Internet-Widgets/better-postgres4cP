@@ -92,6 +92,10 @@ function doInstallScroller () {
     return false;
 }
 
+function handlePGInstall () {
+    return false;
+}
+
 window.doUpgrade = function () {
     'use strict';
     let form = new FormData(upgradeForm);
@@ -104,7 +108,8 @@ window.doUpgrade = function () {
     doAPIRequestWithCallback('Postgres', 'enable_community_repositories', doInstallScroller );
     let versionSelectedElem = document.querySelector('input[name="selectedVersion"]:checked');
     let version2install = versionSelectedElem.value;
-    doAPIRequestWithCallback( 'Postgres', 'install_postgres', doInstallScroller, { "version": "9.5" } );
+    doAPIRequestWithCallback( 'Postgres', 'start_postgres_install', handlePGInstall, { "version": "9.5" } );
+    
     return false;
 }
 
