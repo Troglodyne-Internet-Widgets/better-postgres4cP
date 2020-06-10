@@ -93,6 +93,7 @@ function doInstallScroller () {
 }
 
 function handlePGInstall () {
+    console.log("OK. Now doing our install.");
     return false;
 }
 
@@ -106,10 +107,8 @@ window.doUpgrade = function () {
     submitBtn.innerHTML = '<span class="fa fa-spin fa-spinner"></span>';
     document.getElementById('upgradeDiv').innerHTML = '<pre id="upgradeWell" class="well">Ensuring that the PostgreSQL Community repository is installed...\n</pre>';
     doAPIRequestWithCallback('Postgres', 'enable_community_repositories', doInstallScroller );
-    let versionSelectedElem = document.querySelector('input[name="selectedVersion"]:checked');
-    let version2install = versionSelectedElem.value;
-    doAPIRequestWithCallback( 'Postgres', 'start_postgres_install', handlePGInstall, { "version": "9.5" } );
-    
+    doAPIRequestWithCallback( 'Postgres', 'start_postgres_install', handlePGInstall, { "version": window.selectedVersion } );
+
     return false;
 }
 

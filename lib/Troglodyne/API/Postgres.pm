@@ -5,15 +5,19 @@ use warnings;
 
 use Cpanel::LoadModule::Custom;
 
+our $dir = '/var/cpanel/logs/troglodyne/pgupgrade'
+
 sub get_postgresql_versions {
     Cpanel::LoadModule::Custom::load_perl_module('Troglodyne::CpPostgreSQL');
     require Cpanel::PostgresUtils;
     my @ver_arr = ( Cpanel::PostgresUtils::get_version() );
+    my $running = eval { readlink("$dir/INSTALL_IN_PROGRESS"); } || 0;
     return {
         'installed_version'         => { 'major' => $ver_arr[0], 'minor' => $ver_arr[1] },
         'minimum_supported_version' => $Troglodyne::CpPostgreSQL::MINIMUM_SUPPORTED_VERSION,
         'available_versions'        => \%Troglodyne::CpPostgreSQL::SUPPORTED_VERSIONS_MAP,
         'eol_versions'              => \%Troglodyne::CpPostgreSQL::CP_UNSUPPORTED_VERSIONS_MAP,
+        'install_currently_running' => $running,
     };
 }
 
@@ -54,7 +58,8 @@ sub start_postgres_install {
 
     require Cpanel::FileUtils::Touch;
     my $time = time;
-    Cpanel::FileUtils::Touch::touch_if_not_exists("$dir/pgupgrade-to-$version-at-$time.log");
+    my $lgg = "$dir/pgupgrade-to-$version-at-$time.log";
+    Cpanel::FileUtils::Touch::touch_if_not_exists($lgg);
     
     require Cpanel::Autodie;
     Cpanel::Autodie::unlink_if_exists("$dir/last");
@@ -63,6 +68,39 @@ sub start_postgres_install {
         my $chdir = Cpanel::Chdir->new($dir);
         symlink( "pgupgrade-to-$version-at-$time.log", "last" );
     }
+
+    # OK. We are logging, now return the log loc after kicking it off.
+    # Yeah, yeah, I'm forking twice. who cares
+    require Cpanel::Daemonizer::Tiny;
+    my $install = sub {
+        my ( $ver2install, $log ) = @_;
+
+        my $no_period_version = $ver2install =~ s/\.//r;
+        my @RPMS = (
+            "postgresql$no_period_version",
+        );
+        # TODO: Use Cpanel::Yum::Install based module, let all that stuff handle this "for you".
+        open( my $lh, ">", $lgg ) or do {
+            eval { symlink( "255", "$dir/INSTALL_EXIT_CODE" ); };
+            unlink("$dir/INSTALL_IN_PROGRESS");
+            return;
+        };
+        require Cpanel::SafeRun::Object;
+        my $run_result = Cpanel::SafeRun::Object->new(
+            'program' => 'yum',
+            'args'    => [ qw{install -y}, @RPMS ],
+            'stdout'  => $lh,
+            'stderr'  => $lh,
+        );
+        unlink("$dir/INSTALL_IN_PROGRESS");
+        return;
+    };
+    my $pid = Cpanel::Daemonizer::Tiny::run_as_daemon( $install, $version, $lgg );
+    symlink( $pid, "$dir/INSTALL_IN_PROGRESS" );
+    return {
+        'log' => $lgg,
+        'pid' => $pid,
+    };
 }
 
 1;
