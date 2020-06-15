@@ -102,4 +102,23 @@ sub start_postgres_install {
     };
 }
 
+# Elegance??? Websocket??? Nah. EZ mode actibated
+sub get_latest_upgradelog_messages {
+    my ( $args_hr ) = @_;
+    my ( $line_no, $content, $child_exit );
+    my $in_progress = -f "$dir/INSTALL_IN_PROGRESS";
+    if(!$in_progress) {
+        $child_exit = readlink("$dir/INSTALL_EXIT_CODE");
+    }
+
+    # TODO: Actually read from it
+
+    return {
+        'in_progress' => $in_progress,
+        'child_exit'  => $child_exit,
+        'next_line'   => $line_no,
+        'new_content' => $content,
+    }
+}
+
 1;

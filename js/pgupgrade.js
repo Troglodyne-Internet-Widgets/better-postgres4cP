@@ -97,7 +97,7 @@ function versionHandler (resp) {
 
 function doInstallScroller (resp) {
     'use strict';
-    let obj = JSON.parse(resp);
+    let obj = safeParseJSON(resp);
     let upgradeWell = document.getElementById('upgradeWell');
     let submitBtn = document.getElementById('submit');
     if(obj.result === 1) {
@@ -116,7 +116,8 @@ function doInstallScroller (resp) {
         upgradeWell.textContent += "\nNow proceeding with install of PostgreSQL " + window.selectedVersion + "...\n";
         doAPIRequestWithCallback( 'POST', 'Postgres', 'start_postgres_install', handlePGInstall, generalErrorHandler, { "version": window.selectedVersion } );
     } else {
-         upgradeWell.textContent += "Installlation of community repositories failed:" + obj.reason;
+         console.log(obj.error);
+         upgradeWell.textContent += "Installlation of community repositories failed:" + obj.error;
          submitBtn.textContent = 'Re-Try';
          submitBtn.disabled = false;
     }
@@ -126,14 +127,49 @@ function doInstallScroller (resp) {
 function handlePGInstall (resp) {
     'use strict';
     let obj = safeParseJSON(resp);
+    let upgradeWell = document.getElementById('upgradeWell');
+    let submitBtn = document.getElementById('submit');
     if(obj.result === 1) {
         console.log(obj);
-        console.log("OK. Now doing our install.");
+        upgradeWell.textContent += `Attaching to log file ${obj.data.log} from process #${obj.data.pid}...\n\n`;
+        doAPIRequestWithCallback( 'GET', 'Postgres', 'get_latest_upgradelog_messages', roadRoller, generalErrorHandler, { "pid": obj.data.pid, "log": obj.data.log, "start": 0 } );
     } else {
-        console.log(obj.error);
+         upgradeWell.textContent += `Installlation PostgreSQL ${window.selectedVersion} failed: ${obj.error}`;
+         submitBtn.textContent = 'Re-Try';
+         submitBtn.disabled = false;
     }
 
     return false;
+}
+
+// 8 seconds have passed
+function roadRoller (resp) {
+    'use strict';
+    let obj = safeParseJSON(resp);
+    let upgradeWell = document.getElementById('upgradeWell');
+    let submitBtn = document.getElementById('submit');
+    if(obj.result === 1) {
+
+        // Paste in new content
+        upgradeWell.textContent += obj.data['new_content'];
+        if(obj.data.in_progress) {
+            // Not done yet, keep going
+            doAPIRequestWithCallback(
+                'GET', 'Postgres', 'get_latest_upgradelog_messages', roadRoller, generalErrorHandler, {
+                    "pid": obj.metadata['input_args'].pid,
+                    "log": obj.metadata['input_args'].log,
+                    "start": obj.data['next_line']
+                }
+            );
+        } else {
+            // Do something based on the end status
+
+        }
+    } else {
+         upgradeWell.textContent += `Installlation PostgreSQL ${window.selectedVersion} failed: ${obj.error}`;
+         submitBtn.textContent = 'Re-Try';
+         submitBtn.disabled = false;
+    }
 }
 
 window.doUpgrade = function () {
