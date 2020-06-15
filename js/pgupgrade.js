@@ -24,7 +24,7 @@ function doAPIRequestWithCallback (meth, mod, func, handler, errorHandler, args)
     } else if ( meth === 'POST' ) {
         oReq.open( meth, "api.cgi", true );
         oReq.setRequestHeader( "Content-type", "application/x-www-form-urlencoded" );
-        oReq.send();
+        oReq.send(argstr);
     }
     return false;
 }

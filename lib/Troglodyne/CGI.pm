@@ -10,7 +10,11 @@ sub get_args {
     my $args_hr = {};
     my %handlers = (
         'GET'  => sub { return { map { split( /=/, $_ ) } split( /&/, $ENV{'QUERY_STRING'} ) } },
-        'POST' => sub { die "UNIMPLEMENTED!" },
+        'POST' => sub {
+            die "Content length longer than 4096 bytes on a POST. Get lost!" if $ENV{'CONTENT_LENGTH'} > 4096;
+            sysread( STDIN, my $line, $ENV{'CONTENT_LENGTH'} );
+            return { map { split( /=/, $_ ) } split( /&/, $line ) };
+        },
     );
     $args_hr = $handlers{$meth}->();
     return $args_hr;
