@@ -9,14 +9,32 @@ use warnings;
 use Cpanel::LoadModule::Custom ();
 use JSON::XS                   ();
 
-run() unless caller();
+exit run() unless caller();
 
 sub run {
     # Load up CGI processing modules
     Cpanel::LoadModule::Custom::load_perl_module("Troglodyne::CGI");
 
+    my $ret = {
+        'metadata' => {
+            'input_args' => $args,
+        },
+    };
+
     # Process the args
-    my $args = Troglodyne::CGI::get_args();
+    my $args = {};
+    my $err;
+    {
+        local $@;
+        $args = eval { Troglodyne::CGI::get_args() };
+        $err = $@;
+    }
+
+    if(!scalar(keys(%$args))) {
+        $ret->{'result'} = 0;
+        $ret->{'error'} = "No args detected! $err";
+        return emit($ret);
+    }
 
     # XXX Validation plz
 
@@ -34,11 +52,6 @@ sub run {
 
     # Get back the datastruct from the called module.
     # Yeah, yeah, I know. String eval. XXX
-    my $ret = {
-        'metadata' => {
-            'input_args' => $args,
-        },
-    };
     if( $loaded && $coderef ) {
         local $@;
         my $data = eval { $coderef->($args) };
@@ -58,10 +71,13 @@ sub run {
         $ret->{'result'} = 0;
     }
 
-    # Emit the JSON
+    return emit($ret);
+}
+
+sub emit {
     print "Content-type: application/json\r\n\r\n";
-    print JSON::XS::encode_json($ret);
-    exit;
+    print JSON::XS::encode_json($_[0]);
+    return 0;
 }
 
 1;

@@ -1,21 +1,49 @@
-function doAPIRequestWithCallback (mod, func, handler, args) {
+function doAPIRequestWithCallback (mod, func, handler, errorHandler, args) {
     'use strict';
     let oReq = new XMLHttpRequest();
+    oReq.onreadystatechange = function() {
+        if (this.readyState === XMLHttpRequest.DONE) {
+            if( this.status === 200 ) {
+                handler(this);
+            } else {
+                errorHandler(mod, func, this.status, this.responseText);
+            }
+        }
+    }
     oReq.addEventListener("load", handler);
-    let argstr = ''; 
+    let argarr = [];
     if( typeof args === 'Object' ) {
         Object.keys(args).forEach( function(argument) {
-            argstr += `&${argument}=${args[argument]}`;
+            argarr.push(`${argument}=${args[argument]}`);
         });
     }
-    oReq.open("GET", `api.cgi?module=${mod}&function=${func}${argstr}`);
-    oReq.send();
+
+    oReq.open( "POST", "api.cgi", true );
+    oReq.setRequestHeader( "Content-type", "application/x-www-form-urlencoded" );
+    oReq.send(argarr.join("&"));
     return false;
 }
 
-function versionHandler () {
+function generalErrorHandler(mod, func, code, txt) {
+    console.log(txt);
+    alert(`API call to ${mod}::${func} failed with error code ${code}! Please see the JS console for details.`);
+    return false;
+}
+
+function safeParseJSON(txt) {
+    let obj = {};
+    try {
+        obj = JSON.parse(txt);
+    } catch(e) {
+        console.log(txt);
+        return { "error": e };
+    }
+    return obj;
+}
+
+function versionHandler (xhr) {
     'use strict';
-    let obj = JSON.parse(this.responseText);
+    let obj = safeParseJSON(xhr.responseText);
     if(obj.result === 1) {
         console.log(obj);
 
@@ -65,9 +93,9 @@ function versionHandler () {
     }
 }
 
-function doInstallScroller () {
+function doInstallScroller (xhr) {
     'use strict';
-    let obj = JSON.parse(this.responseText);
+    let obj = JSON.parse(xhr.responseText);
     let upgradeWell = document.getElementById('upgradeWell');
     let submitBtn = document.getElementById('submit');
     if(obj.result === 1) {
@@ -84,6 +112,7 @@ function doInstallScroller () {
         }
         // Ok, now kick off actual install TODO use WebSocket?
         upgradeWell.textContent += "\nNow proceeding with install of PostgreSQL " + window.selectedVersion + "...\n";
+        doAPIRequestWithCallback( 'Postgres', 'start_postgres_install', handlePGInstall, generalErrorHandler, { "version": window.selectedVersion } );
     } else {
          upgradeWell.textContent += "Installlation of community repositories failed:" + obj.reason;
          submitBtn.textContent = 'Re-Try';
@@ -92,8 +121,16 @@ function doInstallScroller () {
     return false;
 }
 
-function handlePGInstall () {
-    console.log("OK. Now doing our install.");
+function handlePGInstall (xhr) {
+    'use strict';
+    let obj = safeParseJSON(xhr.responseText);
+    if(obj.result === 1) {
+        console.log(obj);
+        console.log("OK. Now doing our install.");
+    } else {
+        console.log(obj.error);
+    }
+
     return false;
 }
 
@@ -106,12 +143,11 @@ window.doUpgrade = function () {
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="fa fa-spin fa-spinner"></span>';
     document.getElementById('upgradeDiv').innerHTML = '<pre id="upgradeWell" class="well">Ensuring that the PostgreSQL Community repository is installed...\n</pre>';
-    doAPIRequestWithCallback('Postgres', 'enable_community_repositories', doInstallScroller );
-    doAPIRequestWithCallback( 'Postgres', 'start_postgres_install', handlePGInstall, { "version": window.selectedVersion } );
+    doAPIRequestWithCallback('Postgres', 'enable_community_repositories', doInstallScroller, generalErrorHandler );
 
     return false;
 }
 
 // Now kickoff the page load post bits
 document.getElementById('submit').disabled = true;
-doAPIRequestWithCallback('Postgres', 'get_postgresql_versions', versionHandler);
+doAPIRequestWithCallback( 'Postgres', 'get_postgresql_versions', versionHandler, generalErrorHandler );
