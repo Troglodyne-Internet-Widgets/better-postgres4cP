@@ -5,12 +5,14 @@ use warnings;
 
 # Need to also get POST args, etc.
 sub get_args {
-    require Data::Dumper;
-    die Data::Dumper::Dumper(%$ENV);
-    my $request_method = $ENV{'REQUEST_METHOD'};
-    die "Unsupported request method: '$request_method'" if !grep{ $request_method eq $_ } qw{GET POST};
-    die "POST UNIMPLEMENTED" if $request_method eq 'POST';
-    my $args_hr = { map { split( /=/, $_ ) } split( /&/, $ENV{'QUERY_STRING'} ) };
+    my $meth = $ENV{'REQUEST_METHOD'};
+    die "Unsupported request method: '$meth'" if !grep{ $meth eq $_ } qw{GET POST};
+    my $args_hr = {};
+    my %handlers = (
+        'GET'  => sub { return { map { split( /=/, $_ ) } split( /&/, $ENV{'QUERY_STRING'} ) } },
+        'POST' => sub { die "UNIMPLEMENTED!" },
+    );
+    $args_hr = $handlers{$meth}->();
     return $args_hr;
 }
 

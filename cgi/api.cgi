@@ -15,32 +15,30 @@ sub run {
     # Load up CGI processing modules
     Cpanel::LoadModule::Custom::load_perl_module("Troglodyne::CGI");
 
-    my $ret = {
-        'metadata' => {
-            'input_args' => $args,
-        },
-    };
+    my $ret = { 'metadata' => {} };
 
     # Process the args
-    my $args = {};
+    my $args;
     my $err;
     {
         local $@;
-        $args = eval { Troglodyne::CGI::get_args() };
+        eval { $args = Troglodyne::CGI::get_args() };
         $err = $@;
     }
 
-    if(!scalar(keys(%$args))) {
+    if(!$args || !scalar(keys(%$args))) {
         $ret->{'result'} = 0;
         $ret->{'error'} = "No args detected! $err";
         return emit($ret);
     }
+    $err = '';
+    $ret->{'metadata'}{'input_args'} = $args;
 
     # XXX Validation plz
 
     # Load route code
     my $namespace = "Troglodyne::API::$args->{'module'}";
-    my ( $loaded, $err, $coderef );
+    my ( $loaded, $coderef );
     {
         local $@;
         $loaded = eval {

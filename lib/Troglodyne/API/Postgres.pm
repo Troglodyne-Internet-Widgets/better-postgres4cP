@@ -5,7 +5,7 @@ use warnings;
 
 use Cpanel::LoadModule::Custom;
 
-our $dir = '/var/cpanel/logs/troglodyne/pgupgrade'
+our $dir = '/var/cpanel/logs/troglodyne/pgupgrade';
 
 sub get_postgresql_versions {
     Cpanel::LoadModule::Custom::load_perl_module('Troglodyne::CpPostgreSQL');
@@ -35,7 +35,7 @@ sub enable_community_repositories {
     });
     my $installed = !$ret;
     if( !$installed ) {
-        @cmd = qw{/bin/rpm -i}, $repo_rpm_url;
+        @cmd = ( qw{/bin/rpm -i}, $repo_rpm_url );
         ( $stdout, $stderr, $ret ) = Capture::Tiny::capture( sub {
             system(@cmd);
         } );
@@ -52,7 +52,6 @@ sub enable_community_repositories {
 sub start_postgres_install {
     my ( $args_hr ) = @_;
     my $version = $args_hr->{'version'};
-    my $dir = '/var/cpanel/logs/troglodyne/pgupgrade'
     require Cpanel::Mkdir;
     Cpanel::Mkdir::ensure_directory_existence_and_mode( $dir, 0711 );
 
