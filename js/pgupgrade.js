@@ -11,7 +11,7 @@ function doAPIRequestWithCallback (meth, mod, func, handler, errorHandler, args)
         }
     }
     let argarr = [ `module=${mod}`, `function=${func}` ];
-    if( typeof args === 'Object' ) {
+    if( typeof args === 'object' ) {
         Object.keys(args).forEach( function(argument) {
             argarr.push(`${argument}=${args[argument]}`);
         });
@@ -24,6 +24,7 @@ function doAPIRequestWithCallback (meth, mod, func, handler, errorHandler, args)
     } else if ( meth === 'POST' ) {
         oReq.open( meth, "api.cgi", true );
         oReq.setRequestHeader( "Content-type", "application/x-www-form-urlencoded" );
+        console.log(argstr);
         oReq.send(argstr);
     }
     return false;
@@ -127,6 +128,7 @@ function doInstallScroller (resp) {
 function handlePGInstall (resp) {
     'use strict';
     let obj = safeParseJSON(resp);
+    console.log(resp);
     let upgradeWell = document.getElementById('upgradeWell');
     let submitBtn = document.getElementById('submit');
     if(obj.result === 1) {
@@ -170,6 +172,7 @@ function roadRoller (resp) {
                  return;
             }
             upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} completed successfully!`;
+            submitBtn.textContent = 'All done, please refresh the page.';
         }
     } else {
          upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} failed: ${obj.error}`;
