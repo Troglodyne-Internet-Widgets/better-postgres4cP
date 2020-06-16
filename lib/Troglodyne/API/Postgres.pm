@@ -105,13 +105,22 @@ sub start_postgres_install {
 # Elegance??? Websocket??? Nah. EZ mode actibated
 sub get_latest_upgradelog_messages {
     my ( $args_hr ) = @_;
-    my ( $line_no, $content, $child_exit );
+    my $child_exit;
     my $in_progress = -f "$dir/INSTALL_IN_PROGRESS";
     if(!$in_progress) {
         $child_exit = readlink("$dir/INSTALL_EXIT_CODE");
     }
 
-    # TODO: Actually read from it
+    # XXX validate log arg? Don't want arbitrary file reads?
+    # read from it using seek and tell to control
+    open( my $rh, "<", $args_hr->{'log'} );
+    seek( $rh, $args_hr->{'start'}, 0 ) if $args_hr->{'start'};
+    my $content = '';
+    while( my $line = <$rh> ) {
+        $content .= $line;
+    }
+    my $line_no = tell($rh);
+    close($rh);
 
     return {
         'in_progress' => $in_progress,
