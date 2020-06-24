@@ -81,8 +81,7 @@ sub start_postgres_install {
         );
         # TODO: Use Cpanel::Yum::Install based module, let all that stuff handle this "for you".
         open( my $lh, ">", $lgg ) or do {
-            eval { symlink( "255", "$dir/INSTALL_EXIT_CODE" ); };
-            unlink("$dir/INSTALL_IN_PROGRESS");
+            _cleanup("255");
             return;
         };
         require Cpanel::SafeRun::Object;
@@ -93,9 +92,110 @@ sub start_postgres_install {
             'stderr'  => $lh,
         );
         my $exit = $run_result->error_code() || 0;
-        eval { symlink( "$exit", "$dir/INSTALL_EXIT_CODE" ); };
-        unlink("$dir/INSTALL_IN_PROGRESS");
-        return;
+        return _cleanup("$exit") if $exit;
+
+        # Init the DB
+        $run_result = Cpanel::SafeRun::Object->new(
+            'program' => "/usr/pgsql-$ver2install/bin/initdb",
+            'args'    => [ '-D', "/var/lib/pgsql/$ver2install/data/" ],
+            'stdout'  => $lh,
+            'stderr'  => $lh,
+        );
+        $exit = $run_result->error_code() || 0;
+        return _cleanup("$exit") if $exit;
+
+        require File::Slurper;
+        # Move some bullcrap out of the way if we're on old PGs
+        my @cur_ver = ( Cpanel::PostgresUtils::get_version() );
+        my $str_ver = join( '.', @cur_ver );
+        if( $str_ver + 0 < 9.4 ) {
+            print $lh "\n\nInstalled version is less than 9.4 ($str_ver), Implementing workaround in pg_ctl to ensure pg_upgrade works...\n";
+            require File::Copy;
+            print $lh "Backing up /usr/bin/pg_ctl to /usr/bin/pg_ctl.orig\n";
+            File::Copy::copy('/usr/bin/pg_ctl','/usr/bin/pg_ctl.orig') or do {
+                print $lh "Backup of /usr/bin/pg_ctl to /usr/bin/pg_ctl.orig failed: $!\n";
+                return _cleanup("255");
+            };
+
+            my $pg_ctl_contents = File::Slurper::read_text("/usr/bin/pg_ctl");
+            $pg_ctl_contents =~ s/unix_socket_directory/unix_socket_directories/g;
+            File::Slurper::write_text("/usr/bin/pg_ctl");
+            print $lh "Workaround should be in place now. Proceeding with pg_upgrade.\n\n";
+        }
+
+        # Upgrade the cluster
+        # /usr/pgsql-9.6/bin/pg_upgrade --old-datadir /var/lib/pgsql/data/ --new-datadir /var/lib/pgsql/9.6/data/ --old-bindir /usr/bin/ --new-bindir /usr/pgsql-9.6/bin/
+        my ( $old_datadir, $old_bindir ) = ( $str_ver + 0 < 9.5 ) ? ( '/var/lib/pgsql/data', '/usr/bin' ) : ( "/var/lib/pgsql/$str_ver/data/", "/usr/pgsql-$str_ver/bin/" );
+        $run_result = Cpanel::SafeRun::Object->new(
+            'program' => "/usr/pgsql-$ver2install/bin/pg_upgrade",
+            'args'    => [
+                '--old-datadir', $old_datadir,
+                '--new-datadir', "/var/lib/pgsql/$ver2install/data/",
+                '--old-bindir', $old_bindir,
+                '--new_bindir', "/usr/pgsql-$ver2install/bin/",
+            ],
+            'stdout'  => $lh,
+            'stderr'  => $lh,
+        );
+        $exit = $run_result->error_code() || 0;
+        return _cleanup("$exit") if $exit;
+
+        # Start the server.
+        $run_result = Cpanel::SafeRun::Object->new(
+            'program' => "systemctl",
+            'args'    => [ 'start', "postgresql-$ver2install" ],
+            'stdout'  => $lh,
+            'stderr'  => $lh,
+        );
+        $exit = $run_result->error_code() || 0;
+        return _cleanup("$exit") if $exit;
+
+        if( $str_ver + 0 < 9.4 ) {
+            print $lh "\n\nWorkaround resulted in successful start of the server. Reverting workaround changes to pg_ctl...\n\n";
+            rename( '/usr/bin/pg_ctl.orig', '/usr/bin/pg_ctl' ) or do {
+                print $lh "Restore of /usr/bin/pg_ctl.orig to /usr/bin/pg_ctl failed: $!\n";
+                return _cleanup("255");
+            };
+        }
+
+        print $lh "\n\nNow cleaning up old postgresql version...\n";
+        my $svc2remove = ( $str_ver + 0 < 9.5 ) ? 'postgresql' : "postgresql-$str_ver";
+        $run_result = Cpanel::SafeRun::Object->new(
+            'program' => "systemctl",
+            'args'    => [ 'disable', $svc2remove ],
+            'stdout'  => $lh,
+            'stderr'  => $lh,
+        );
+        $exit = $run_result->error_code() || 0;
+        return _cleanup("$exit") if $exit;
+        $run_result = Cpanel::SafeRun::Object->new(
+            'program' => "yum",
+            'args'    => [ '-y', 'remove', $svc2remove ],
+            'stdout'  => $lh,
+            'stderr'  => $lh,
+        );
+        $exit = $run_result->error_code() || 0;
+        return _cleanup("$exit") if $exit;
+
+        print $lh "\n\nNow enabling postgresql-$ver2install on startup...\n";
+        $run_result = Cpanel::SafeRun::Object->new(
+            'program' => "systemctl",
+            'args'    => [ 'enable', "postgresql-$ver2install" ],
+            'stdout'  => $lh,
+            'stderr'  => $lh,
+        );
+        $exit = $run_result->error_code() || 0;
+        return _cleanup("$exit") if $exit;
+
+        print $lh "\n\nWriting new .bash_profile for the 'postgres' user...\n";
+        my $bash_profile = "[ -f /etc/profile ] && source /etc/profile
+PGDATA=/var/lib/pgsql/$ver2install/data
+export PGDATA
+[ -f /var/lib/pgsql/.pgsql_profile ] && source /var/lib/pgsql/.pgsql_profile
+export PATH=\$PATH:/usr/pgsql-$ver2install/bin\n";
+        File::Slurper::write_text( '/var/lib/pgsql/.bash_profile', $bash_profile );
+
+        return _cleanup("0");
     };
     my $pid = Cpanel::Daemonizer::Tiny::run_as_daemon( $install, $version, $lgg );
     symlink( $pid, "$dir/INSTALL_IN_PROGRESS" );
@@ -103,6 +203,12 @@ sub start_postgres_install {
         'log' => $lgg,
         'pid' => $pid,
     };
+}
+
+sub _cleanup {
+    eval { symlink( $_[0], "$dir/INSTALL_EXIT_CODE" ); };
+    unlink("$dir/INSTALL_IN_PROGRESS");
+    return;
 }
 
 # Elegance??? Websocket??? Nah. EZ mode actibated
