@@ -160,12 +160,12 @@ function roadRoller (resp) {
                 'GET', 'Postgres', 'get_latest_upgradelog_messages', roadRoller, generalErrorHandler, {
                     "pid": obj.metadata['input_args'].pid,
                     "log": obj.metadata['input_args'].log,
-                    "start": obj.data['next_line']
+                    "start": obj.data['next']
                 }
             );
         } else {
             // Do something based on the end status
-            if(obj.data['child_exit']) {
+            if(+obj.data['child_exit']) {
                 upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} failed: ${obj.data['child_exit']}`;
                  submitBtn.textContent = 'Re-Try';
                  submitBtn.disabled = false;

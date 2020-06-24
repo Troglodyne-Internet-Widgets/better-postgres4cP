@@ -77,6 +77,7 @@ sub start_postgres_install {
         my $no_period_version = $ver2install =~ s/\.//r;
         my @RPMS = (
             "postgresql$no_period_version",
+            "postgresql$no_period_version-server",
         );
         # TODO: Use Cpanel::Yum::Install based module, let all that stuff handle this "for you".
         open( my $lh, ">", $lgg ) or do {
@@ -91,6 +92,8 @@ sub start_postgres_install {
             'stdout'  => $lh,
             'stderr'  => $lh,
         );
+        my $exit = $run_result->error_code() || 0;
+        eval { symlink( "$exit", "$dir/INSTALL_EXIT_CODE" ); };
         unlink("$dir/INSTALL_IN_PROGRESS");
         return;
     };
@@ -106,7 +109,7 @@ sub start_postgres_install {
 sub get_latest_upgradelog_messages {
     my ( $args_hr ) = @_;
     my $child_exit;
-    my $in_progress = -f "$dir/INSTALL_IN_PROGRESS";
+    my $in_progress = -l "$dir/INSTALL_IN_PROGRESS";
     if(!$in_progress) {
         $child_exit = readlink("$dir/INSTALL_EXIT_CODE");
     }
@@ -119,13 +122,13 @@ sub get_latest_upgradelog_messages {
     while( my $line = <$rh> ) {
         $content .= $line;
     }
-    my $line_no = tell($rh);
+    my $pos = tell($rh);
     close($rh);
 
     return {
         'in_progress' => $in_progress,
         'child_exit'  => $child_exit,
-        'next_line'   => $line_no,
+        'next'        => $pos,
         'new_content' => $content,
     }
 }
