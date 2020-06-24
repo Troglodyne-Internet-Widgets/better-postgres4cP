@@ -154,6 +154,7 @@ function roadRoller (resp) {
 
         // Paste in new content
         upgradeWell.textContent += obj.data['new_content'];
+        upgradeWell.scrollTo(0,upgradeWell.scrollHeight);
         if(obj.data['in_progress']) {
             // Not done yet, keep going
             doAPIRequestWithCallback(
@@ -166,16 +167,19 @@ function roadRoller (resp) {
         } else {
             // Do something based on the end status
             if(+obj.data['child_exit']) {
-                upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} failed: ${obj.data['child_exit']}`;
+                 upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} failed: ${obj.data['child_exit']}`;
+                 upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} completed successfully!`;
                  submitBtn.textContent = 'Re-Try';
                  submitBtn.disabled = false;
                  return;
             }
             upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} completed successfully!`;
+            upgradeWell.scrollTo(0,upgradeWell.scrollHeight);
             submitBtn.textContent = 'All done, please refresh the page.';
         }
     } else {
          upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} failed: ${obj.error}`;
+         upgradeWell.scrollTo(0,upgradeWell.scrollHeight);
          submitBtn.textContent = 'Re-Try';
          submitBtn.disabled = false;
     }
