@@ -46,6 +46,9 @@ sub render_cached_or_process_template {
         $input_hr->{'print'} = 0;
         require Cpanel::Template;
         my ( $success, $output_sr ) = Cpanel::Template::process_template( $service, $input_hr );
+
+        # TODO: Investigate whether I can send to two filehandles simultaneously -- $output_sr and STDOUT (as we are a CGI).
+        # Then we could cache & print without the below step.
         if( $success ) {
             return if render_to_cache_and_print( $cache_dir, $output_sr );
         }
@@ -82,6 +85,7 @@ sub render_from_cache {
     my $worked = eval {
         open( my $fh, '<', "$cache_dir/$CP_SECURITY_TOKEN" ) or die "Couldn't open cache file \"$cache_dir/$CP_SECURITY_TOKEN\" for reading: $!";
         while( <$fh> ) { print $_; }
+        1;
     };
     if(my $err = $@) {
 

@@ -6,10 +6,10 @@ vca  = /var/cpanel/apps
 vct  = /var/cpanel/templates
 pwd  = $(shell pwd)
  
-.PHONY: all install register test uninstall rpm
+.PHONY: all install register test uninstall rpm test-depend
 all: install register
 
-install:
+install: test
 	mkdir -p $(DESTDIR)$(ulc)$(tmpl)/ui $(DESTDIR)$(ulc)$(tmpl)/config $(DESTDIR)$(ulc)$(cgi)/js $(DESTDIR)$(ulc)$(cgi)/img $(DESTDIR)$(vcp)/Troglodyne/CGI $(DESTDIR)$(vcp)/Troglodyne/API $(DESTDIR)$(vca) $(DESTDIR)$(vct)/troglodyne/config $(DESTDIR)$(ulc)/whostmgr/docroot/addon_plugins
 	install $(pwd)/templates/ui/pgupgrade.tmpl $(DESTDIR)$(ulc)$(tmpl)
 	install $(pwd)/templates/config/main.default $(DESTDIR)$(vct)/troglodyne/config
@@ -42,9 +42,12 @@ uninstall:
 	rm -rf /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne
 	rm -f /usr/local/cpanel/whostmgr/docroot/addon_plugins/troglophant.png
 
-test:
-	[ ! -x /usr/local/cpanel/3rdparty/bin/prove ] || /usr/local/cpanel/3rdparty/bin/prove t/*.t
-	[ -x /usr/local/cpanel/3rdparty/bin/prove ] || prove t/*.t
+
+test-depend:
+	perl -MTest2::V0 -MTest::MockModule -MFile::Temp -MCapture::Tiny -e 'exit 0' || sudo cpan -i Test2::V0 Test::MockModule File::Temp Capture::Tiny
+
+test: test-depend
+	prove -mv t/*.t
 
 rpm:
 	rm -rf SOURCES/*
