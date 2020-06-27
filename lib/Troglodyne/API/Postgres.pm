@@ -84,6 +84,16 @@ sub start_postgres_install {
             _cleanup("255");
             return;
         };
+
+        # Check for CCS. Temporarily disable it if so.
+        require Cpanel::RPM;
+        my $ccs_installed = Cpanel::RPM::get_version('cpanel-ccs-calendarserver');
+        if($ccs_installed) {
+            print $lh "\ncpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
+            require Whostmgr::Services;
+            Whostmgr::Services::disable('cpanel-ccs');
+        }
+
         require Cpanel::SafeRun::Object;
         my $run_result = Cpanel::SafeRun::Object->new(
             'program' => 'yum',
@@ -150,6 +160,38 @@ sub start_postgres_install {
         $exit = $run_result->error_code() || 0;
         return _cleanup("$exit") if $exit;
 
+        if( $ccs_installed ) {
+            print $lh "\n\nNow upgrading PG cluster for cpanel-ccs-calendarserver...\n";
+            my $ccs_pg_datadir = '/opt/cpanel-ccs/data/Data/Database/cluster';
+            print $lh "Old PG datadir is being moved to '$ccs_pg_datadir.old'...\n";
+            rename( $ccs_pg_datadir, "$ccs_pg_datadir.old" );
+            mkdir($ccs_pg_datadir);
+
+            # Init the DB
+            $run_result = Cpanel::SafeRun::Object->new(
+                'program' => "/usr/pgsql-$ver2install/bin/initdb",
+                'args'    => [ '-D', $ccs_pg_datadir ],
+                'stdout'  => $lh,
+                'stderr'  => $lh,
+            );
+            $exit = $run_result->error_code() || 0;
+            return _cleanup("$exit") if $exit;
+
+            $run_result = Cpanel::SafeRun::Object->new(
+                'program' => "/usr/pgsql-$ver2install/bin/pg_upgrade",
+                'args'    => [
+                    '--old-datadir', "$ccs_pg_datadir.old",
+                    '--new-datadir', $ccs_pg_datadir,
+                    '--old-bindir', $old_bindir,
+                    '--new_bindir', "/usr/pgsql-$ver2install/bin/",
+                ],
+                'stdout'  => $lh,
+                'stderr'  => $lh,
+            );
+            $exit = $run_result->error_code() || 0;
+            return _cleanup("$exit") if $exit;
+        }
+
         if( $str_ver + 0 < 9.4 ) {
             print $lh "\n\nWorkaround resulted in successful start of the server. Reverting workaround changes to pg_ctl...\n\n";
             rename( '/usr/bin/pg_ctl.orig', '/usr/bin/pg_ctl' ) or do {
@@ -194,6 +236,13 @@ export PGDATA
 [ -f /var/lib/pgsql/.pgsql_profile ] && source /var/lib/pgsql/.pgsql_profile
 export PATH=\$PATH:/usr/pgsql-$ver2install/bin\n";
         File::Slurper::write_text( '/var/lib/pgsql/.bash_profile', $bash_profile );
+
+        if($ccs_installed) {
+            File::Slurper::write_text( '/opt/cpanel-ccs/.bash_profile', $bash_profile );
+            print $lh "\nRe-Enabling cpanel-ccs-calendarserver...\n\n";
+            require Whostmgr::Services;
+            Whostmgr::Services::enable('cpanel-ccs');
+        }
 
         return _cleanup("0");
     };
