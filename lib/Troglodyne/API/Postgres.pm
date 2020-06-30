@@ -87,7 +87,8 @@ sub start_postgres_install {
 
         # Check for CCS. Temporarily disable it if so.
         require Cpanel::RPM;
-        my $ccs_installed = Cpanel::RPM::get_version('cpanel-ccs-calendarserver');
+        my $ccs_installed = Cpanel::RPM->get_version('cpanel-ccs-calendarserver');
+        $ccs_installed = $ccs_installed->{'cpanel-ccs-calendarserver'};
         if($ccs_installed) {
             print $lh "\ncpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
             require Whostmgr::Services;
@@ -99,7 +100,11 @@ sub start_postgres_install {
         return _cleanup("$exit") if $exit;
 
         # Init the DB
-        $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', "/var/lib/pgsql/$ver2install/data/" );
+        require Cpanel::AccessIds::ReducedPrivileges;
+        {
+            my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
+            $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', "/var/lib/pgsql/$ver2install/data/" );
+        }
         return _cleanup("$exit") if $exit;
 
         require File::Slurper;
@@ -133,7 +138,7 @@ sub start_postgres_install {
         return _cleanup("$exit") if $exit;
 
         # Start the server.
-        $exit = _saferun( $lh, qw{systemctl start} "postgresql-$ver2install" );
+        $exit = _saferun( $lh, qw{systemctl start}, "postgresql-$ver2install" );
         return _cleanup("$exit") if $exit;
 
         if( $ccs_installed ) {
