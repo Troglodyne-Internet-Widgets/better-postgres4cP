@@ -71,7 +71,7 @@ sub start_postgres_install {
     # OK. We are logging, now return the log loc after kicking it off.
     # Yeah, yeah, I'm forking twice. who cares
     require Cpanel::Daemonizer::Tiny;
-    my $pid = Cpanel::Daemonizer::Tiny::run_as_daemon( &_real_install, $version, $lgg );
+    my $pid = Cpanel::Daemonizer::Tiny::run_as_daemon( \&_real_install, $version, $lgg );
     symlink( $pid, "$dir/INSTALL_IN_PROGRESS" ) if $pid;
     return {
         'log' => $lgg,
@@ -88,16 +88,28 @@ sub _real_install {
         "postgresql$no_period_version-server",
     );
     # TODO: Use Cpanel::Yum::Install based module, let all that stuff handle this "for you".
-    open( my $lh, ">", $lgg ) or do {
-        _cleanup("255");
-        return;
-    };
+    open( my $lh, ">", $log ) or return _cleanup("255");
+    select $lh;
+    $| = 1;
+    select $lh;
     print $lh "Beginning install...\n";
 
     # Check for CCS. Temporarily disable it if so.
-    require Cpanel::RPM;
-    my $ccs_installed = Cpanel::RPM->get_version('cpanel-ccs-calendarserver');
-    $ccs_installed = $ccs_installed->{'cpanel-ccs-calendarserver'};
+    my ( $ccs_installed, $err );
+    {
+        local $@;
+        eval {
+            require Cpanel::RPM;
+            $ccs_installed = Cpanel::RPM->new()->get_version('cpanel-ccs-calendarserver');
+            $ccs_installed = $ccs_installed->{'cpanel-ccs-calendarserver'};
+        };
+        $err = $@;
+    }
+    if($err) {
+        print $lh "[ERROR] $err\n";
+        return _cleanup('255');
+    }
+    print $lh "[DEBUG] CCS Installed? $ccs_installed\n";
     if($ccs_installed) {
         print $lh "\ncpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
         require Whostmgr::Services;
@@ -109,13 +121,23 @@ sub _real_install {
     return _cleanup("$exit") if $exit;
 
     # Init the DB
-    require Cpanel::AccessIds::ReducedPrivileges;
     {
-        my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
-        $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', "/var/lib/pgsql/$ver2install/data/" );
+        local $@;
+        eval {
+            require Cpanel::AccessIds::ReducedPrivileges;
+            my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
+            $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', "/var/lib/pgsql/$ver2install/data/" );
+        };
+        $err = $@;
+    }
+    if($err) {
+        print $lh "[ERROR] $err\n";
+        return _cleanup('255');
     }
     return _cleanup("$exit") if $exit;
 
+    # XXX FAILING HERE
+    print $lh "[DEBUG] pg_ctl workaround step...\n";
     require File::Slurper;
     # Move some bullcrap out of the way if we're on old PGs
     my @cur_ver = ( Cpanel::PostgresUtils::get_version() );
@@ -135,6 +157,7 @@ sub _real_install {
         print $lh "Workaround should be in place now. Proceeding with pg_upgrade.\n\n";
     }
 
+    print $lh "[DEBUG] Uprade cluster\n";
     # Upgrade the cluster
     # /usr/pgsql-9.6/bin/pg_upgrade --old-datadir /var/lib/pgsql/data/ --new-datadir /var/lib/pgsql/9.6/data/ --old-bindir /usr/bin/ --new-bindir /usr/pgsql-9.6/bin/
     my ( $old_datadir, $old_bindir ) = ( $str_ver + 0 < 9.5 ) ? ( '/var/lib/pgsql/data', '/usr/bin' ) : ( "/var/lib/pgsql/$str_ver/data/", "/usr/pgsql-$str_ver/bin/" );

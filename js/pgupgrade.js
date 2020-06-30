@@ -193,7 +193,10 @@ window.doUpgrade = function () {
     let submitBtn = document.getElementById('submit');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="fa fa-spin fa-spinner"></span>';
-    document.getElementById('upgradeDiv').innerHTML = '<pre id="upgradeWell" class="well">Ensuring that the PostgreSQL Community repository is installed...\n</pre>';
+    let upgradeWell = document.getElementById('upgradeWell');
+    upgradeWell.textContent = 'Ensuring that the PostgreSQL Community repository is installed...\n';
+    upgradeWell.style.display = "block";
+    upgradeForm.style.display = "none";
     doAPIRequestWithCallback( 'GET', 'Postgres', 'enable_community_repositories', doInstallScroller, generalErrorHandler );
 
     return false;
