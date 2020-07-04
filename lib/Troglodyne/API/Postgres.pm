@@ -161,12 +161,7 @@ sub _real_install {
         push @ROLLBACKS, $rb;
 
         local $@;
-        my $pg_ctl_contents = eval { File::Slurper::read_binary("/usr/bin/pg_ctl") };
-        if($@) {
-            print $lh "[ERROR] Read from /usr/bin/pg_ctl failed: $@\n";
-            return _cleanup('255');
-        }
-        $pg_ctl_contents =~ s/unix_socket_directory/unix_socket_directories/g;
+        my $pg_ctl_contents = "#!/bin/bash\n\"\$0\".orig \"\${@/unix_socket_directory/unix_socket_directories}\"";
         eval {
             File::Slurper::write_binary( "/usr/bin/pg_ctl", $pg_ctl_contents );
             chmod( 0755, '/usr/bin/pg_ctl' );
