@@ -169,7 +169,7 @@ sub _real_install {
         $pg_ctl_contents =~ s/unix_socket_directory/unix_socket_directories/g;
         eval {
             File::Slurper::write_binary( "/usr/bin/pg_ctl", $pg_ctl_contents );
-            chmod( 0644, '/usr/bin/pg_ctl' );
+            chmod( 0755, '/usr/bin/pg_ctl' );
         };
         if($@) {
             print $lh "[ERROR] Write to /usr/bin/pg_ctl failed: $@\n";
