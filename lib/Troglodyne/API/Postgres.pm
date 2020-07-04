@@ -79,9 +79,11 @@ sub start_postgres_install {
     };
 }
 
+our @ROLLBACKS;
 sub _real_install {
     my ( $ver2install, $log ) = @_;
 
+    @ROLLBACKS = ();
     require Cpanel::AccessIds::ReducedPrivileges;
     my $no_period_version = $ver2install =~ s/\.//r;
     my @RPMS = (
@@ -115,11 +117,15 @@ sub _real_install {
         print $lh "\ncpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
         require Whostmgr::Services;
         Whostmgr::Services::disable('cpanel-ccs');
+        my $rb = sub { Whostmgr::Services::enable('cpanel-ccs'); };
+        push @ROLLBACKS, $rb;
     }
 
     require Cpanel::SafeRun::Object;
     my $exit = _saferun( $lh, 'yum', qw{install -y}, @RPMS );
     return _cleanup("$exit") if $exit;
+    my $rollbck = sub { _saferun( $lh, 'yum', qw{remove -y}, @RPMS ) };
+    push @ROLLBACKS, $rollbck;
 
     # Init the DB
     {
@@ -135,6 +141,9 @@ sub _real_install {
         return _cleanup('255');
     }
     return _cleanup("$exit") if $exit;
+    # probably shouldn't do it this way. Whatever
+    my $rd_rllr = sub { _saferun( $lh, qw{rm -rf}, "/var/lib/pgsql/$ver2install/data" ) };
+    push @ROLLBACKS, $rd_rllr;
 
     require File::Slurper;
     # Move some bullcrap out of the way if we're on old PGs
@@ -149,6 +158,8 @@ sub _real_install {
             print $lh "Backup of /usr/bin/pg_ctl to /usr/bin/pg_ctl.orig failed: $!\n";
             return _cleanup("255");
         };
+        my $rb = sub { File::Copy::move('/usr/bin/pg_ctl','/usr/bin/pg_ctl.orig'); };
+        push @ROLLBACKS, $rb;
 
         print $lh "[DEBUG] Got to reading\n";
         local $@;
@@ -169,7 +180,6 @@ sub _real_install {
 
     require Cpanel::Chdir;
     print $lh "[DEBUG] Uprade cluster\n";
-    # XXX FAILING HERE. NEED TO IMPLEMENT ROLLBACK ADDER SUB SO I DON'T HAVE TO DO ALL THIS STUFF OVER AND OVER
     # Upgrade the cluster
     # /usr/pgsql-9.6/bin/pg_upgrade --old-datadir /var/lib/pgsql/data/ --new-datadir /var/lib/pgsql/9.6/data/ --old-bindir /usr/bin/ --new-bindir /usr/pgsql-9.6/bin/
     my ( $old_datadir, $old_bindir ) = ( $str_ver + 0 < 9.5 ) ? ( '/var/lib/pgsql/data', '/usr/bin' ) : ( "/var/lib/pgsql/$str_ver/data/", "/usr/pgsql-$str_ver/bin/" );
@@ -202,8 +212,10 @@ sub _real_install {
         print $lh "\n\nNow upgrading PG cluster for cpanel-ccs-calendarserver...\n";
         my $ccs_pg_datadir = '/opt/cpanel-ccs/data/Data/Database/cluster';
         print $lh "Old PG datadir is being moved to '$ccs_pg_datadir.old'...\n";
-        rename( $ccs_pg_datadir, "$ccs_pg_datadir.old" );
+        File::Copy::move( $ccs_pg_datadir, "$ccs_pg_datadir.old" );
         mkdir($ccs_pg_datadir);
+        my $rb = sub { File::Copy::move( "$ccs_pg_datadir.old", $ccs_pg_datadir ); };
+        push @ROLLBACKS, $rb;
 
         # Init the DB
         {
@@ -246,6 +258,8 @@ sub _real_install {
         return _cleanup("$exit") if $exit;
     }
 
+    # At this point we're at the point where we don't need to restore. Just clean up.
+    @ROLLBACKS = ();
     if( $str_ver + 0 < 9.4 ) {
         print $lh "\n\nWorkaround resulted in successful start of the server. Reverting workaround changes to pg_ctl...\n\n";
         rename( '/usr/bin/pg_ctl.orig', '/usr/bin/pg_ctl' ) or do {
@@ -314,7 +328,21 @@ sub _saferun {
 }
 
 sub _cleanup {
-    eval { symlink( $_[0], "$dir/INSTALL_EXIT_CODE" ); };
+    my ( $code ) = @_;
+
+    # Do rollbacks
+    foreach my $rb ( @ROLLBACKS ) {
+        local $@;
+        eval { $rb->(); };
+        my $exit = $@ ? 255 : 0;
+        if($exit) {
+            $code = $exit;
+            last;
+        }
+    }
+
+    # Signal completion
+    eval { symlink( $code, "$dir/INSTALL_EXIT_CODE" ); };
     unlink("$dir/INSTALL_IN_PROGRESS");
     return;
 }
