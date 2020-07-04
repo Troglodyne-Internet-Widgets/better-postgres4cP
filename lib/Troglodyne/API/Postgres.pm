@@ -112,7 +112,6 @@ sub _real_install {
         print $lh "[ERROR] $err\n";
         return _cleanup('255');
     }
-    print $lh "[DEBUG] CCS Installed? $ccs_installed\n";
     if($ccs_installed) {
         print $lh "\ncpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
         require Whostmgr::Services;
@@ -161,14 +160,12 @@ sub _real_install {
         my $rb = sub { File::Copy::move('/usr/bin/pg_ctl.orig','/usr/bin/pg_ctl'); };
         push @ROLLBACKS, $rb;
 
-        print $lh "[DEBUG] Got to reading\n";
         local $@;
         my $pg_ctl_contents = eval { File::Slurper::read_binary("/usr/bin/pg_ctl") };
         if($@) {
             print $lh "[ERROR] Read from /usr/bin/pg_ctl failed: $@\n";
             return _cleanup('255');
         }
-        print $lh "[DEBUG] READ IN\n";
         $pg_ctl_contents =~ s/unix_socket_directory/unix_socket_directories/g;
         eval { File::Slurper::write_binary( "/usr/bin/pg_ctl", $pg_ctl_contents ); };
         if($@) {
@@ -179,7 +176,6 @@ sub _real_install {
     }
 
     require Cpanel::Chdir;
-    print $lh "[DEBUG] Uprade cluster\n";
     # Upgrade the cluster
     # /usr/pgsql-9.6/bin/pg_upgrade --old-datadir /var/lib/pgsql/data/ --new-datadir /var/lib/pgsql/9.6/data/ --old-bindir /usr/bin/ --new-bindir /usr/pgsql-9.6/bin/
     my ( $old_datadir, $old_bindir ) = ( $str_ver + 0 < 9.5 ) ? ( '/var/lib/pgsql/data', '/usr/bin' ) : ( "/var/lib/pgsql/$str_ver/data/", "/usr/pgsql-$str_ver/bin/" );
@@ -189,10 +185,10 @@ sub _real_install {
             my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
             my $cd_obj = Cpanel::Chdir->new('/var/lib/pgsql');
             $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
-                    '--old-datadir', $old_datadir,
-                    '--new-datadir', "/var/lib/pgsql/$ver2install/data/",
-                    '--old-bindir', $old_bindir,
-                    '--new_bindir', "/usr/pgsql-$ver2install/bin/",
+                    '-d', $old_datadir,
+                    '-D', "/var/lib/pgsql/$ver2install/data/",
+                    '-b', $old_bindir,
+                    '-B', "/usr/pgsql-$ver2install/bin/",
             );
         };
         $err = $@;
@@ -242,10 +238,10 @@ sub _real_install {
                 my $cd_obj = Cpanel::Chdir->new('/opt/cpanel-ccs');
 
                 $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
-                    '--old-datadir', "$ccs_pg_datadir.old",
-                    '--new-datadir', $ccs_pg_datadir,
-                    '--old-bindir', $old_bindir,
-                    '--new_bindir', "/usr/pgsql-$ver2install/bin/",
+                    '-d', "$ccs_pg_datadir.old",
+                    '-D', $ccs_pg_datadir,
+                    '-b', $old_bindir,
+                    '-B', "/usr/pgsql-$ver2install/bin/",
                     qw{-c -U caldav},
                 );
             };
