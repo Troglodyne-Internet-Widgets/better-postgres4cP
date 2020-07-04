@@ -97,6 +97,16 @@ sub _real_install {
     select $lh;
     print $lh "Beginning install...\n";
 
+    require Whostmgr::Services;
+    require Cpanel::Services::Enabled;
+    if( Cpanel::Services::Enabled::is_enabled('postgres') ) {
+        print $lh "Disabling postgresql during the upgrade window since it is currently enabled...\n";
+        Whostmgr::Services::disable('postgres');
+        my $rb = sub { Whostmgr::Services::enable('postgres'); };
+        unlink '/var/lib/pgsql/data/postmaster.pid';
+        push @ROLLBACKS, $rb;
+    }
+
     # Check for CCS. Temporarily disable it if so.
     my ( $ccs_installed, $err );
     {
@@ -114,8 +124,8 @@ sub _real_install {
     }
     if($ccs_installed) {
         print $lh "\ncpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
-        require Whostmgr::Services;
         Whostmgr::Services::disable('cpanel-ccs');
+        unlink '/opt/cpanel-ccs/data/Data/Database/cluster/postmaster.pid';
         my $rb = sub { Whostmgr::Services::enable('cpanel-ccs'); };
         push @ROLLBACKS, $rb;
     }
@@ -174,7 +184,6 @@ sub _real_install {
     }
 
     require Cpanel::Chdir;
-    # XXX STOP PG NOW
     # Upgrade the cluster
     # /usr/pgsql-9.6/bin/pg_upgrade --old-datadir /var/lib/pgsql/data/ --new-datadir /var/lib/pgsql/9.6/data/ --old-bindir /usr/bin/ --new-bindir /usr/pgsql-9.6/bin/
     my ( $old_datadir, $old_bindir ) = ( $str_ver + 0 < 9.5 ) ? ( '/var/lib/pgsql/data', '/usr/bin' ) : ( "/var/lib/pgsql/$str_ver/data/", "/usr/pgsql-$str_ver/bin/" );
@@ -325,8 +334,8 @@ sub _saferun {
 sub _cleanup {
     my ( $code ) = @_;
 
-    # Do rollbacks
-    foreach my $rb ( @ROLLBACKS ) {
+    # Do rollbacks in reverse order
+    foreach my $rb ( reverse @ROLLBACKS ) {
         local $@;
         eval { $rb->(); };
         my $exit = $@ ? 255 : 0;
