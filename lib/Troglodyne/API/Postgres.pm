@@ -82,6 +82,7 @@ sub start_postgres_install {
 sub _real_install {
     my ( $ver2install, $log ) = @_;
 
+    require Cpanel::AccessIds::ReducedPrivileges;
     my $no_period_version = $ver2install =~ s/\.//r;
     my @RPMS = (
         "postgresql$no_period_version",
@@ -124,7 +125,6 @@ sub _real_install {
     {
         local $@;
         eval {
-            require Cpanel::AccessIds::ReducedPrivileges;
             my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
             $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', "/var/lib/pgsql/$ver2install/data/" );
         };
@@ -136,10 +136,9 @@ sub _real_install {
     }
     return _cleanup("$exit") if $exit;
 
-    # XXX FAILING HERE
-    print $lh "[DEBUG] pg_ctl workaround step...\n";
     require File::Slurper;
     # Move some bullcrap out of the way if we're on old PGs
+    require Cpanel::PostgresUtils;
     my @cur_ver = ( Cpanel::PostgresUtils::get_version() );
     my $str_ver = join( '.', @cur_ver );
     if( $str_ver + 0 < 9.4 ) {
@@ -151,9 +150,20 @@ sub _real_install {
             return _cleanup("255");
         };
 
-        my $pg_ctl_contents = File::Slurper::read_text("/usr/bin/pg_ctl");
+        print $lh "[DEBUG] Got to reading\n";
+        local $@;
+        my $pg_ctl_contents = eval { File::Slurper::read_binary("/usr/bin/pg_ctl") };
+        if($@) {
+            print $lh "[ERROR] Read from /usr/bin/pg_ctl failed: $@\n";
+            return _cleanup('255');
+        }
+        print $lh "[DEBUG] READ IN\n";
         $pg_ctl_contents =~ s/unix_socket_directory/unix_socket_directories/g;
-        File::Slurper::write_text("/usr/bin/pg_ctl");
+        eval { File::Slurper::write_binary( "/usr/bin/pg_ctl", $pg_ctl_contents ); };
+        if($@) {
+            print $lh "[ERROR] Write to /usr/bin/pg_ctl failed: $@\n";
+            return _cleanup('255');
+        }
         print $lh "Workaround should be in place now. Proceeding with pg_upgrade.\n\n";
     }
 
@@ -161,13 +171,25 @@ sub _real_install {
     # Upgrade the cluster
     # /usr/pgsql-9.6/bin/pg_upgrade --old-datadir /var/lib/pgsql/data/ --new-datadir /var/lib/pgsql/9.6/data/ --old-bindir /usr/bin/ --new-bindir /usr/pgsql-9.6/bin/
     my ( $old_datadir, $old_bindir ) = ( $str_ver + 0 < 9.5 ) ? ( '/var/lib/pgsql/data', '/usr/bin' ) : ( "/var/lib/pgsql/$str_ver/data/", "/usr/pgsql-$str_ver/bin/" );
-    $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
-            '--old-datadir', $old_datadir,
-            '--new-datadir', "/var/lib/pgsql/$ver2install/data/",
-            '--old-bindir', $old_bindir,
-            '--new_bindir', "/usr/pgsql-$ver2install/bin/",
-    );
+    {
+        local $@;
+        eval {
+            my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
+            $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
+                    '--old-datadir', $old_datadir,
+                    '--new-datadir', "/var/lib/pgsql/$ver2install/data/",
+                    '--old-bindir', $old_bindir,
+                    '--new_bindir', "/usr/pgsql-$ver2install/bin/",
+            );
+        };
+        $err = $@;
+    }
+    if($err) {
+        print $lh "[ERROR] $err\n";
+        return _cleanup('255');
+    }
     return _cleanup("$exit") if $exit;
+
 
     # Start the server.
     $exit = _saferun( $lh, qw{systemctl start}, "postgresql-$ver2install" );
@@ -182,19 +204,41 @@ sub _real_install {
 
         # Init the DB
         {
-            local $ENV{'PGSETUP_INITDB_OPTIONS'} = "-U caldav --locale=C -E=UTF8";
-            $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', $ccs_pg_datadir );
-            return _cleanup("$exit") if $exit;
+            local $@;
+            eval {
+                my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('cpanel-ccs');
+
+                local $ENV{'PGSETUP_INITDB_OPTIONS'} = "-U caldav --locale=C -E=UTF8";
+                $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', $ccs_pg_datadir );
+            };
+            $err = $@;
         }
+        if($err) {
+            print $lh "[ERROR] $err\n";
+            return _cleanup('255');
+        }
+        return _cleanup("$exit") if $exit;
 
         # Upgrade the DB
-        $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
-            '--old-datadir', "$ccs_pg_datadir.old",
-            '--new-datadir', $ccs_pg_datadir,
-            '--old-bindir', $old_bindir,
-            '--new_bindir', "/usr/pgsql-$ver2install/bin/",
-            qw{-c -U caldav},
-        );
+        {
+            local $@;
+            eval {
+                my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('cpanel-ccs');
+
+                $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
+                    '--old-datadir', "$ccs_pg_datadir.old",
+                    '--new-datadir', $ccs_pg_datadir,
+                    '--old-bindir', $old_bindir,
+                    '--new_bindir', "/usr/pgsql-$ver2install/bin/",
+                    qw{-c -U caldav},
+                );
+            };
+            $err = $@;
+        }
+        if($err) {
+            print $lh "[ERROR] $err\n";
+            return _cleanup('255');
+        }
         return _cleanup("$exit") if $exit;
     }
 
