@@ -158,7 +158,7 @@ sub _real_install {
             print $lh "Backup of /usr/bin/pg_ctl to /usr/bin/pg_ctl.orig failed: $!\n";
             return _cleanup("255");
         };
-        my $rb = sub { File::Copy::move('/usr/bin/pg_ctl','/usr/bin/pg_ctl.orig'); };
+        my $rb = sub { File::Copy::move('/usr/bin/pg_ctl.orig','/usr/bin/pg_ctl'); };
         push @ROLLBACKS, $rb;
 
         print $lh "[DEBUG] Got to reading\n";

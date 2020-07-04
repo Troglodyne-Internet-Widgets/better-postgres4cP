@@ -167,8 +167,7 @@ function roadRoller (resp) {
         } else {
             // Do something based on the end status
             if(+obj.data['child_exit']) {
-                 upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} failed: ${obj.data['child_exit']}`;
-                 upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} completed successfully!`;
+                 upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} failed: Subprocess exited ${obj.data['child_exit']}`;
                  submitBtn.textContent = 'Re-Try';
                  submitBtn.disabled = false;
                  return;
