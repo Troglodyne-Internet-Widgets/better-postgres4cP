@@ -167,7 +167,9 @@ sub _real_install {
         print $lh "Workaround should be in place now. Proceeding with pg_upgrade.\n\n";
     }
 
+    require Cpanel::Chdir;
     print $lh "[DEBUG] Uprade cluster\n";
+    # XXX FAILING HERE. NEED TO IMPLEMENT ROLLBACK ADDER SUB SO I DON'T HAVE TO DO ALL THIS STUFF OVER AND OVER
     # Upgrade the cluster
     # /usr/pgsql-9.6/bin/pg_upgrade --old-datadir /var/lib/pgsql/data/ --new-datadir /var/lib/pgsql/9.6/data/ --old-bindir /usr/bin/ --new-bindir /usr/pgsql-9.6/bin/
     my ( $old_datadir, $old_bindir ) = ( $str_ver + 0 < 9.5 ) ? ( '/var/lib/pgsql/data', '/usr/bin' ) : ( "/var/lib/pgsql/$str_ver/data/", "/usr/pgsql-$str_ver/bin/" );
@@ -175,6 +177,7 @@ sub _real_install {
         local $@;
         eval {
             my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
+            my $cd_obj = Cpanel::Chdir->new('/var/lib/pgsql');
             $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
                     '--old-datadir', $old_datadir,
                     '--new-datadir', "/var/lib/pgsql/$ver2install/data/",
@@ -224,6 +227,7 @@ sub _real_install {
             local $@;
             eval {
                 my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('cpanel-ccs');
+                my $cd_obj = Cpanel::Chdir->new('/opt/cpanel-ccs');
 
                 $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
                     '--old-datadir', "$ccs_pg_datadir.old",
