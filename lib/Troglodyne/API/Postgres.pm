@@ -99,11 +99,10 @@ sub _real_install {
 
     require Whostmgr::Services;
     require Cpanel::Services::Enabled;
-    if( Cpanel::Services::Enabled::is_enabled('postgres') ) {
+    if( Cpanel::Services::Enabled::is_enabled('postgresql') ) {
         print $lh "Disabling postgresql during the upgrade window since it is currently enabled...\n";
-        Whostmgr::Services::disable('postgres');
-        my $rb = sub { Whostmgr::Services::enable('postgres'); };
-        unlink '/var/lib/pgsql/data/postmaster.pid';
+        Whostmgr::Services::disable('postgresql');
+        my $rb = sub { Whostmgr::Services::enable('postgresql'); };
         push @ROLLBACKS, $rb;
     }
 
@@ -125,7 +124,6 @@ sub _real_install {
     if($ccs_installed) {
         print $lh "\ncpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
         Whostmgr::Services::disable('cpanel-ccs');
-        unlink '/opt/cpanel-ccs/data/Data/Database/cluster/postmaster.pid';
         my $rb = sub { Whostmgr::Services::enable('cpanel-ccs'); };
         push @ROLLBACKS, $rb;
     }
@@ -163,11 +161,12 @@ sub _real_install {
         print $lh "\n\nInstalled version is less than 9.4 ($str_ver), Implementing workaround in pg_ctl to ensure pg_upgrade works...\n";
         require File::Copy;
         print $lh "Backing up /usr/bin/pg_ctl to /usr/bin/pg_ctl.orig\n";
-        File::Copy::copy('/usr/bin/pg_ctl','/usr/bin/pg_ctl.orig') or do {
+        File::Copy::cp('/usr/bin/pg_ctl','/usr/bin/pg_ctl.orig') or do {
             print $lh "Backup of /usr/bin/pg_ctl to /usr/bin/pg_ctl.orig failed: $!\n";
             return _cleanup("255");
         };
-        my $rb = sub { File::Copy::move('/usr/bin/pg_ctl.orig','/usr/bin/pg_ctl'); };
+        chmod(0755, '/usr/bin/pg_ctl.orig');
+        my $rb = sub { File::Copy::mv('/usr/bin/pg_ctl.orig','/usr/bin/pg_ctl'); };
         push @ROLLBACKS, $rb;
 
         local $@;
@@ -187,6 +186,16 @@ sub _real_install {
     # Upgrade the cluster
     # /usr/pgsql-9.6/bin/pg_upgrade --old-datadir /var/lib/pgsql/data/ --new-datadir /var/lib/pgsql/9.6/data/ --old-bindir /usr/bin/ --new-bindir /usr/pgsql-9.6/bin/
     my ( $old_datadir, $old_bindir ) = ( $str_ver + 0 < 9.5 ) ? ( '/var/lib/pgsql/data', '/usr/bin' ) : ( "/var/lib/pgsql/$str_ver/data/", "/usr/pgsql-$str_ver/bin/" );
+    unlink '/var/lib/pgsql/data/postmaster.pid';
+
+    # Copy over the .pgpass file for the postgres user so that it knows how to connect as itself (oof)
+    File::Copy::cp('/root/.pgpass', '/var/lib/pgsql/.pgpass');
+    my $reb = sub { unlink '/var/lib/pgsql/.pgpass' };
+    push @ROLLBACKS, $reb;
+    require Cpanel::SafetyBits::Chown;
+    Cpanel::SafetyBits::Chown::safe_chown( 'postgres', 'postgres', '/var/lib/pgsql/.pgpass' );
+    chmod( 0600, '/var/lib/pgsql/.pgpass' );
+
     {
         local $@;
         eval {
@@ -216,10 +225,12 @@ sub _real_install {
         print $lh "\n\nNow upgrading PG cluster for cpanel-ccs-calendarserver...\n";
         my $ccs_pg_datadir = '/opt/cpanel-ccs/data/Data/Database/cluster';
         print $lh "Old PG datadir is being moved to '$ccs_pg_datadir.old'...\n";
-        File::Copy::move( $ccs_pg_datadir, "$ccs_pg_datadir.old" );
+        File::Copy::mv( $ccs_pg_datadir, "$ccs_pg_datadir.old" );
         mkdir($ccs_pg_datadir);
-        my $rb = sub { File::Copy::move( "$ccs_pg_datadir.old", $ccs_pg_datadir ); };
+        my $rb = sub { File::Copy::mv( "$ccs_pg_datadir.old", $ccs_pg_datadir ); };
         push @ROLLBACKS, $rb;
+
+        unlink '/opt/cpanel-ccs/data/Data/Database/cluster/postmaster.pid';
 
         # Init the DB
         {
