@@ -24,7 +24,6 @@ function doAPIRequestWithCallback (meth, mod, func, handler, errorHandler, args)
     } else if ( meth === 'POST' ) {
         oReq.open( meth, "api.cgi", true );
         oReq.setRequestHeader( "Content-type", "application/x-www-form-urlencoded" );
-        console.log(argstr);
         oReq.send(argstr);
     }
     return false;
@@ -128,11 +127,9 @@ function doInstallScroller (resp) {
 function handlePGInstall (resp) {
     'use strict';
     let obj = safeParseJSON(resp);
-    console.log(resp);
     let upgradeWell = document.getElementById('upgradeWell');
     let submitBtn = document.getElementById('submit');
     if(obj.result === 1) {
-        console.log(obj);
         upgradeWell.textContent += `Attaching to log file ${obj.data.log} from process #${obj.data.pid}...\n\n`;
         doAPIRequestWithCallback( 'GET', 'Postgres', 'get_latest_upgradelog_messages', roadRoller, generalErrorHandler, { "pid": obj.data.pid, "log": obj.data.log, "start": 0 } );
     } else {

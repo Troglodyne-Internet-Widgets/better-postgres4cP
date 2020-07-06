@@ -138,8 +138,10 @@ sub _real_install {
     {
         local $@;
         eval {
+            # XXX Need to get your locale somehow
+            my $locale = 'en_US.UTF-8';
             my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
-            $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', "/var/lib/pgsql/$ver2install/data/" );
+            $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '--locale', $locale, '-E', 'UTF8', '-D', "/var/lib/pgsql/$ver2install/data/" );
         };
         $err = $@;
     }
