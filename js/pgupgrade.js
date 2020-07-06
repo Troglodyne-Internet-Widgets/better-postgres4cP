@@ -69,6 +69,9 @@ function versionHandler (resp) {
         // Now let's build the table
         let rows = '';
         for ( var version of Object.keys(obj.data.available_versions).sort(function(a,b) { return parseFloat(b) - parseFloat(a) }) ) {
+            if( parseFloat(pgVersion) >= parseFloat(version) ) {
+                continue;
+            }
             rows +=
 `<tr id="pgVersionRow-${version}">
     <td>
