@@ -304,38 +304,14 @@ sub _real_install {
     $exit = _saferun( $lh, qw{systemctl enable}, "postgresql-$ver2install" );
     return _cleanup("$exit") if $exit;
 
-    # Update alternatives. Should be fine to use --auto, as no other alternatives will exist for the installed version.
-    # Create alternatives for pg_ctl, etc. as those don't get made by the RPM.
-    print $lh "\n\nUpdating alternatives to ensure the newly installed version is considered canonical...\n";
-    my @normie_alts = qw{pg_ctl initdb pg_config pg_upgrade};
-    my @manual_alts = qw{clusterdb createdb createuser dropdb droplang dropuser pg_basebackup pg_dump pg_dumpall pg_restore psql psql-reindexdb vaccumdb};
-    foreach my $alt ( @normie_alts ) {
-        $exit = _saferun( $lh, qw{update-alternatives --install}, "/usr/bin/$alt", "pgsql-$alt", "/usr/pgsql-$ver2install/bin/$alt", "50" );
-        return _cleanup("$exit") if $exit;
-        $exit = _saferun( $lh, qw{update-alternatives --auto}, "pgsql-$alt" );
-        return _cleanup("$exit") if $exit;
-    }
-    foreach my $alt ( @manual_alts ) {
-        $exit = _saferun( $lh, qw{update-alternatives --auto}, "pgsql-$alt" );
-        return _cleanup("$exit") if $exit;
-        $exit = _saferun( $lh, qw{update-alternatives --auto}, "pgsql-${alt}man" );
-        return _cleanup("$exit") if $exit;
-    }
-
-    print $lh "\n\nWriting new .bash_profile for the 'postgres' user...\n";
-    my $bash_profile = "[ -f /etc/profile ] && source /etc/profile
-PGDATA=/var/lib/pgsql/$ver2install/data
-export PGDATA
-[ -f /var/lib/pgsql/.pgsql_profile ] && source /var/lib/pgsql/.pgsql_profile
-export PATH=\$PATH:/usr/pgsql-$ver2install/bin\n";
-    File::Slurper::write_text( '/var/lib/pgsql/.bash_profile', $bash_profile );
-
     if($ccs_installed) {
-        File::Slurper::write_text( '/opt/cpanel-ccs/.bash_profile', $bash_profile );
         print $lh "\nRe-Enabling cpanel-ccs-calendarserver...\n\n";
         require Whostmgr::Services;
         Whostmgr::Services::enable('cpanel-ccs');
     }
+
+    # XXX Now the postgres service appears as "disabled" for cPanel's sake. Frowny faces everywhere.
+    # Not sure how to fix yet.
 
     return _cleanup("0");
 }
