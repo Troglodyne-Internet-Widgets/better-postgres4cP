@@ -111,6 +111,7 @@ sub _real_install {
     {
         local $@;
         eval {
+            push @RPMS, "postgresql$no_period_version-devel";
             require Cpanel::RPM;
             $ccs_installed = Cpanel::RPM->new()->get_version('cpanel-ccs-calendarserver');
             $ccs_installed = $ccs_installed->{'cpanel-ccs-calendarserver'};
@@ -135,11 +136,10 @@ sub _real_install {
     push @ROLLBACKS, $rollbck;
 
     # Init the DB
+    my $locale = $ENV{'LANG'} || 'en_US.UTF-8';
     {
         local $@;
         eval {
-            # XXX Need to get your locale somehow
-            my $locale = 'en_US.UTF-8';
             my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
             $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '--locale', $locale, '-E', 'UTF8', '-D', "/var/lib/pgsql/$ver2install/data/" );
         };
@@ -229,7 +229,15 @@ sub _real_install {
         print $lh "Old PG datadir is being moved to '$ccs_pg_datadir.old'...\n";
         File::Copy::mv( $ccs_pg_datadir, "$ccs_pg_datadir.old" );
         mkdir($ccs_pg_datadir);
-        my $rb = sub { File::Copy::mv( "$ccs_pg_datadir.old", $ccs_pg_datadir ); };
+        chmod( 0700, $ccs_pg_datadir );
+        Cpanel::SafetyBits::Chown::safe_chown( 'cpanel-ccs', 'cpanel-ccs', $ccs_pg_datadir );
+        
+        my $rb = sub {
+            require File::Path;
+            File::Path::remove_tree($ccs_pg_datadir, { 'error' => \my $err } );
+            print $lh join( "\n", @$err ) if ( $err && @$err );
+            File::Copy::mv( "$ccs_pg_datadir.old", $ccs_pg_datadir ); 
+        };
         push @ROLLBACKS, $rb;
 
         unlink '/opt/cpanel-ccs/data/Data/Database/cluster/postmaster.pid';
@@ -239,9 +247,7 @@ sub _real_install {
             local $@;
             eval {
                 my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('cpanel-ccs');
-
-                local $ENV{'PGSETUP_INITDB_OPTIONS'} = "-U caldav --locale=C -E=UTF8";
-                $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', $ccs_pg_datadir );
+                $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', $ccs_pg_datadir, '-U', 'caldav', '--locale', $locale, '-E', 'UTF8' );
             };
             $err = $@;
         }
@@ -263,7 +269,7 @@ sub _real_install {
                     '-D', $ccs_pg_datadir,
                     '-b', $old_bindir,
                     '-B', "/usr/pgsql-$ver2install/bin/",
-                    qw{-c -U caldav},
+                    qw{-U caldav},
                 );
             };
             $err = $@;
@@ -289,6 +295,8 @@ sub _real_install {
     my $svc2remove = ( $str_ver + 0 < 9.5 ) ? 'postgresql' : "postgresql-$str_ver";
     $exit = _saferun( $lh, qw{systemctl disable}, $svc2remove );
     return _cleanup("$exit") if $exit;
+
+    # XXX Can't actually remove 9.2 if CCS is installed :(
     $exit = _saferun( $lh, qw{yum -y remove}, $svc2remove );
     return _cleanup("$exit") if $exit;
 
