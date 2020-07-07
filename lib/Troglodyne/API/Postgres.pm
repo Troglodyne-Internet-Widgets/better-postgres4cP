@@ -70,6 +70,7 @@ sub start_postgres_install {
 
     # OK. We are logging, now return the log loc after kicking it off.
     # Yeah, yeah, I'm forking twice. who cares
+    unlink( "$dir/INSTALL_EXIT_CODE" );
     require Cpanel::Daemonizer::Tiny;
     my $pid = Cpanel::Daemonizer::Tiny::run_as_daemon( \&_real_install, $version, $lgg );
     symlink( $pid, "$dir/INSTALL_IN_PROGRESS" ) if $pid;
@@ -132,7 +133,7 @@ sub _real_install {
     my $ccs_installed = Cpanel::RPM->new()->get_version('cpanel-ccs-calendarserver');
     $ccs_installed = $ccs_installed->{'cpanel-ccs-calendarserver'};
     my $ccs_enabled   = Cpanel::Services::Enabled::is_enabled('cpanel-ccs');
-    if( $ccs_installed && $ccs_enabled ) {
+    if( $ccs_installed ) {
         print $lh "# [INFO] cpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
         $exit = _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=cpanel-ccs enabled=0 monitored=0} );
         return _cleanup("$exit", $lh) if $exit;
@@ -289,17 +290,25 @@ sub _real_install {
     # Create alternatives for pg_ctl, etc. as those don't get made by the RPM.
     print $lh "# [INFO] Updating alternatives to ensure the newly installed version is considered canonical...\n";
     my @normie_alts = qw{pg_ctl initdb pg_config pg_upgrade};
-    my @manual_alts = qw{clusterdb createdb createuser dropdb droplang dropuser pg_basebackup pg_dump pg_dumpall pg_restore psql psql-reindexdb vaccumdb};
+    my @manual_alts = qw{clusterdb createdb createuser dropdb droplang dropuser pg_basebackup pg_dump pg_dumpall pg_restore psql};
     foreach my $alt ( @normie_alts ) {
-        $exit = _saferun( $lh, qw{update-alternatives --install}, "/usr/bin/$alt", "pgsql-$alt", "/usr/pgsql-$ver2install/bin/$alt", "50" );
+        my @cmd = ( qw{update-alternatives --install}, "/usr/bin/$alt", "pgsql-$alt", "/usr/pgsql-$ver2install/bin/$alt", "50" );
+        print $lh join( " ", @cmd ) . "\n";
+        $exit = _saferun( $lh, @cmd );
         return _cleanup("$exit", $lh) if $exit;
-        $exit = _saferun( $lh, qw{update-alternatives --auto}, "pgsql-$alt" );
+        @cmd = ( qw{update-alternatives --auto}, "pgsql-$alt" );
+        print $lh join( " ", @cmd ) . "\n";
+        $exit = _saferun( $lh, @cmd );
         return _cleanup("$exit", $lh) if $exit;
     }
     foreach my $alt ( @manual_alts ) {
-        $exit = _saferun( $lh, qw{update-alternatives --auto}, "pgsql-$alt" );
+        my @cmd = ( qw{update-alternatives --auto}, "pgsql-$alt" );
+        print $lh join( " ", @cmd ) . "\n";
+        $exit = _saferun( $lh, @cmd );
         return _cleanup("$exit", $lh) if $exit;
-        $exit = _saferun( $lh, qw{update-alternatives --auto}, "pgsql-${alt}man" );
+        @cmd = ( qw{update-alternatives --auto}, "pgsql-${alt}man" );
+        print $lh join( " ", @cmd ) . "\n";
+        $exit = _saferun( $lh, @cmd );
         return _cleanup("$exit", $lh) if $exit;
     }
 
