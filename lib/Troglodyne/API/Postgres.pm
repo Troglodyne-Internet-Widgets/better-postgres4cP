@@ -84,21 +84,36 @@ sub _real_install {
     my ( $ver2install, $log ) = @_;
 
     @ROLLBACKS = ();
-    require Cpanel::AccessIds::ReducedPrivileges;
     my $no_period_version = $ver2install =~ s/\.//r;
     my @RPMS = (
         "postgresql$no_period_version",
         "postgresql$no_period_version-server",
+        "postgresql$no_period_version-devel", # For CCS
     );
     # TODO: Use Cpanel::Yum::Install based module, let all that stuff handle this "for you".
     open( my $lh, ">", $log ) or return _cleanup("255");
     select $lh;
     $| = 1;
     select $lh;
+
+    # So, since I can't know what all crap to eval here,
+    # let's just catch all the dies and throw generic
+    # errors in this event then trigger rollback.
+    local $SIG{__DIE__} = sub {
+        print $lh "# [ERROR] ", @_;
+        require Devel::StackTrace;
+        my $trace = Devel::StackTrace->new();
+        print $lh "\n", $trace->as_string(), "\n";
+        _cleanup('255');
+        die @_;
+    };
+
     print $lh "# [INFO] Beginning install...\n";
 
+    require Cpanel::AccessIds::ReducedPrivileges;
     require Whostmgr::Services;
     require Cpanel::Services::Enabled;
+    my $postgres_enabled = Cpanel::Services::Enabled::is_enabled('postgresql');
     if( Cpanel::Services::Enabled::is_enabled('postgresql') ) {
         print $lh "# [INFO] Disabling postgresql during the upgrade window since it is currently enabled...\n";
         Whostmgr::Services::disable('postgresql');
@@ -108,22 +123,11 @@ sub _real_install {
     }
 
     # Check for CCS. Temporarily disable it if so.
-    my ( $ccs_installed, $err );
-    {
-        local $@;
-        eval {
-            push @RPMS, "postgresql$no_period_version-devel";
-            require Cpanel::RPM;
-            $ccs_installed = Cpanel::RPM->new()->get_version('cpanel-ccs-calendarserver');
-            $ccs_installed = $ccs_installed->{'cpanel-ccs-calendarserver'};
-        };
-        $err = $@;
-    }
-    if($err) {
-        print $lh "# [ERROR] $err\n";
-        return _cleanup('255');
-    }
-    if($ccs_installed) {
+    require Cpanel::RPM;
+    my $ccs_installed = Cpanel::RPM->new()->get_version('cpanel-ccs-calendarserver');
+    $ccs_installed = $ccs_installed->{'cpanel-ccs-calendarserver'};
+    my $ccs_enabled   = Cpanel::Services::Enabled::is_enabled('cpanel-ccs');
+    if( $ccs_installed && $ccs_enabled ) {
         print $lh "# [INFO] cpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
         Whostmgr::Services::disable('cpanel-ccs');
         print $lh "# [INFO] Adding 're-enable cpanel-ccs' to \@ROLLBACKS stack...\n"; 
@@ -141,16 +145,8 @@ sub _real_install {
     # Init the DB
     my $locale = $ENV{'LANG'} || 'en_US.UTF-8';
     {
-        local $@;
-        eval {
-            my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
-            $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '--locale', $locale, '-E', 'UTF8', '-D', "/var/lib/pgsql/$ver2install/data/" );
-        };
-        $err = $@;
-    }
-    if($err) {
-        print $lh "# [ERROR] $err\n";
-        return _cleanup('255');
+        my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
+        $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '--locale', $locale, '-E', 'UTF8', '-D', "/var/lib/pgsql/$ver2install/data/" );
     }
     return _cleanup("$exit") if $exit;
     # probably shouldn't do it this way. Whatever
@@ -176,16 +172,10 @@ sub _real_install {
         my $rb = sub { File::Copy::mv('/usr/bin/pg_ctl.orig','/usr/bin/pg_ctl'); };
         push @ROLLBACKS, $rb;
 
-        local $@;
         my $pg_ctl_contents = "#!/bin/bash\n\"\$0\".orig \"\${@/unix_socket_directory/unix_socket_directories}\"";
-        eval {
-            File::Slurper::write_binary( "/usr/bin/pg_ctl", $pg_ctl_contents );
-            chmod( 0755, '/usr/bin/pg_ctl' );
-        };
-        if($@) {
-            print $lh "# [ERROR] Write to /usr/bin/pg_ctl failed: $@\n";
-            return _cleanup('255');
-        }
+        File::Slurper::write_binary( "/usr/bin/pg_ctl", $pg_ctl_contents );
+        chmod( 0755, '/usr/bin/pg_ctl' );
+
         print $lh "# [INFO] Workaround should be in place now. Proceeding with pg_upgrade.\n\n";
     }
 
@@ -207,22 +197,14 @@ sub _real_install {
 
     print "# [INFO] Now running pg_upgrade on the default cluster...\n";
     {
-        local $@;
-        eval {
-            my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
-            my $cd_obj = Cpanel::Chdir->new('/var/lib/pgsql');
-            $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
-                    '-d', $old_datadir,
-                    '-D', "/var/lib/pgsql/$ver2install/data/",
-                    '-b', $old_bindir,
-                    '-B', "/usr/pgsql-$ver2install/bin/",
-            );
-        };
-        $err = $@;
-    }
-    if($err) {
-        print $lh "[ERROR] $err\n";
-        return _cleanup('255');
+        my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
+        my $cd_obj = Cpanel::Chdir->new('/var/lib/pgsql');
+        $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
+                '-d', $old_datadir,
+                '-D', "/var/lib/pgsql/$ver2install/data/",
+                '-b', $old_bindir,
+                '-B', "/usr/pgsql-$ver2install/bin/",
+        );
     }
     return _cleanup("$exit") if $exit;
 
@@ -254,40 +236,24 @@ sub _real_install {
 
         # Init the DB
         {
-            local $@;
-            eval {
-                my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('cpanel-ccs');
-                $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', $ccs_pg_datadir, '-U', 'caldav', '--locale', $locale, '-E', 'UTF8' );
-            };
-            $err = $@;
-        }
-        if($err) {
-            print $lh "[ERROR] $err\n";
-            return _cleanup('255');
+            my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('cpanel-ccs');
+            $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', $ccs_pg_datadir, '-U', 'caldav', '--locale', $locale, '-E', 'UTF8' );
         }
         return _cleanup("$exit") if $exit;
 
         print $lh "# [INFO] Now upgrading the PG cluster for cpanel-ccs-calendarserver...\n";
         # Upgrade the DB
         {
-            local $@;
-            eval {
-                my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('cpanel-ccs');
-                my $cd_obj = Cpanel::Chdir->new('/opt/cpanel-ccs');
+            my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('cpanel-ccs');
+            my $cd_obj = Cpanel::Chdir->new('/opt/cpanel-ccs');
 
-                $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
-                    '-d', "$ccs_pg_datadir.old",
-                    '-D', $ccs_pg_datadir,
-                    '-b', $old_bindir,
-                    '-B', "/usr/pgsql-$ver2install/bin/",
-                    qw{-U caldav},
-                );
-            };
-            $err = $@;
-        }
-        if($err) {
-            print $lh "[ERROR] $err\n";
-            return _cleanup('255');
+            $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
+                '-d', "$ccs_pg_datadir.old",
+                '-D', $ccs_pg_datadir,
+                '-b', $old_bindir,
+                '-B', "/usr/pgsql-$ver2install/bin/",
+                qw{-U caldav},
+            );
         }
         return _cleanup("$exit") if $exit;
     }
@@ -314,7 +280,7 @@ sub _real_install {
     $exit = _saferun( $lh, qw{systemctl enable}, "postgresql-$ver2install" );
     return _cleanup("$exit") if $exit;
 
-    if($ccs_installed) {
+    if($ccs_installed && $ccs_enabled) {
         print $lh "# [INFO] Re-Enabling cpanel-ccs-calendarserver...\n";
         require Whostmgr::Services;
         Whostmgr::Services::enable('cpanel-ccs');
@@ -322,8 +288,10 @@ sub _real_install {
 
     # XXX Now the postgres service appears as "disabled" for cPanel's sake. Frowny faces everywhere.
     # Not sure how to fix yet.
-    print $lh "# [INFO] Re-Enabling postgres services for cPanel...\n";
-    print $lh "# [TODO] Actually do this!\n";
+    if($postgres_enabled) {
+        print $lh "# [INFO] Re-Enabling postgres services for cPanel...\n";
+        print $lh "# [TODO] Actually do this!\n";
+    }
 
     return _cleanup("0");
 }
