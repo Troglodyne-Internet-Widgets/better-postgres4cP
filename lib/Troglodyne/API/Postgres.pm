@@ -92,7 +92,7 @@ sub _real_install {
         "postgresql$no_period_version-devel", # For CCS
     );
     # TODO: Use Cpanel::Yum::Install based module, let all that stuff handle this "for you".
-    open( my $lh, ">", $log ) or return _cleanup("255", $lh);
+    open( my $lh, ">", $log ) or return _cleanup("255");
     select $lh;
     $| = 1;
     select $lh;
@@ -318,8 +318,10 @@ sub _cleanup {
     my ( $code, $lh ) = @_;
 
     # Do rollbacks in reverse order
-    print $lh "# [ERROR] Encountered failure during install!\n" if $code;
-    print $lh "# [INFO]  Now executing rollbacks...\n" if( $code && @ROLLBACKS);
+    if($lh) {
+        print $lh "# [ERROR] Encountered failure during install!\n" if $code;
+        print $lh "# [INFO]  Now executing rollbacks...\n" if( $code && @ROLLBACKS);
+    }
     foreach my $rb ( reverse @ROLLBACKS ) {
         local $@;
         eval { $rb->(); };
