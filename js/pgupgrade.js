@@ -92,7 +92,9 @@ function versionHandler (resp) {
 </tr>`;
         }
         if( !rows.length ) {
-            rows = '<tr id="noAvailableVersions"><td colspan=4>No newer versions are currently available for install.</td></tr>';
+            rows = '<tr id="noAvailableVersions"><td colspan=4>No newer versions are currently available for install. ';
+            rows += '<a href="https://troglodyne.net/better-postgres-for-cpanel#FAQ-YUNO-PG11" title="Versions FAQ">Click here for more information.</a>';
+            rows += '</td></tr>';
         }
         document.getElementById('loadingCell').remove();
         document.querySelector('#upgradeForm > table > tbody').innerHTML = rows;
