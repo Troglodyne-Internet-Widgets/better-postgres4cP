@@ -50,4 +50,18 @@ our %CP_UNSUPPORTED_VERSIONS_MAP = (
     '8.4' => { 'release' => 1246424400, 'EOL' => 1406178000 }, # Cent 6
 );
 
+# The cPanel version is a joke. You have to further massage data.
+sub get_version {
+    require Cpanel::PostgresUtils;
+    my @cur_ver = ( Cpanel::PostgresUtils::get_version() );
+    if(!$cur_ver[0]) {
+
+        # Chop off the bullshit error message -- "Failed to determine postgresql version: "
+        # If we start at the end, that's 40 chars
+        my $str = substr( $cur_ver[1], 40 );
+        @cur_ver = $cur_ver[1] =~ m/(\d+)\.(\d+)$/;
+    }
+    return @cur_ver;
+}
+
 1;

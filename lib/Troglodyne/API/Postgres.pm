@@ -9,8 +9,7 @@ our $dir = '/var/cpanel/logs/troglodyne/pgupgrade';
 
 sub get_postgresql_versions {
     Cpanel::LoadModule::Custom::load_perl_module('Troglodyne::CpPostgreSQL');
-    require Cpanel::PostgresUtils;
-    my @ver_arr = ( Cpanel::PostgresUtils::get_version() );
+    my @ver_arr = ( Troglodyne::CpPostgreSQL::get_version() );
     my $running = eval { readlink("$dir/INSTALL_IN_PROGRESS"); } || 0;
     return {
         'installed_version'         => { 'major' => $ver_arr[0], 'minor' => $ver_arr[1] },
@@ -119,8 +118,8 @@ sub _real_install {
 
     # FORCE UNCACHED LOAD YOU FUCKER
     unlink '/root/.cpanel/datastore/_usr_bin_psql_--version';
-    require Cpanel::PostgresUtils;
-    my @cur_ver = ( Cpanel::PostgresUtils::get_version() );
+    Cpanel::LoadModule::Custom::load_perl_module('Troglodyne::CpPostgreSQL');
+    my @cur_ver = ( Troglodyne::CpPostgreSQL::get_version() );
     my $str_ver = join( '.', @cur_ver );
     my $postgres_enabled = 0;
     if( $str_ver + 0 < 9.3 ) {

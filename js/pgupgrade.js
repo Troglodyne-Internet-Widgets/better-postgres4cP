@@ -91,6 +91,9 @@ function versionHandler (resp) {
     </td>
 </tr>`;
         }
+        if( !rows.length ) {
+            rows = '<tr id="noAvailableVersions"><td colspan=4>No newer versions are currently available for install.</td></tr>';
+        }
         document.getElementById('loadingCell').remove();
         document.querySelector('#upgradeForm > table > tbody').innerHTML = rows;
     } else {
