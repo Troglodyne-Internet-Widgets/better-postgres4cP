@@ -87,6 +87,7 @@ sub _real_install {
     my $no_period_version = $ver2install =~ s/\.//r;
     my @RPMS = (
         "postgresql$no_period_version",
+        "postgresql$no_period_version-libs",
         "postgresql$no_period_version-server",
         "postgresql$no_period_version-devel", # For CCS
     );
@@ -103,22 +104,26 @@ sub _real_install {
         print $lh "# [ERROR] ", @_;
         require Devel::StackTrace;
         my $trace = Devel::StackTrace->new();
-        print $lh "\n", $trace->as_string(), "\n";
+        print $lh $trace->as_string(), "\n";
         _cleanup('255');
         die @_;
     };
 
     print $lh "# [INFO] Beginning install...\n";
 
+    my $exit;
     require Cpanel::AccessIds::ReducedPrivileges;
-    require Whostmgr::Services;
+    require Cpanel::SafeRun::Object;
     require Cpanel::Services::Enabled;
     my $postgres_enabled = Cpanel::Services::Enabled::is_enabled('postgresql');
     if( Cpanel::Services::Enabled::is_enabled('postgresql') ) {
         print $lh "# [INFO] Disabling postgresql during the upgrade window since it is currently enabled...\n";
-        Whostmgr::Services::disable('postgresql');
+        # Don't use Whostmgr::Services, as that bungles the __DIE__ overwrite.
+        $exit = _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=postgresql enabled=0 monitored=0} );
+        return _cleanup("$exit") if $exit;
+
         print $lh "# [INFO] Adding 're-enable postgresql' to \@ROLLBACKS stack...\n"; 
-        my $rb = sub { Whostmgr::Services::enable('postgresql'); };
+        my $rb = sub { _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=postgresql enabled=1 monitored=1} ); };
         push @ROLLBACKS, $rb;
     }
 
@@ -129,14 +134,14 @@ sub _real_install {
     my $ccs_enabled   = Cpanel::Services::Enabled::is_enabled('cpanel-ccs');
     if( $ccs_installed && $ccs_enabled ) {
         print $lh "# [INFO] cpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
-        Whostmgr::Services::disable('cpanel-ccs');
+        $exit = _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=cpanel-ccs enabled=0 monitored=0} );
+        return _cleanup("$exit") if $exit;
         print $lh "# [INFO] Adding 're-enable cpanel-ccs' to \@ROLLBACKS stack...\n"; 
-        my $rb = sub { Whostmgr::Services::enable('cpanel-ccs'); };
+        my $rb = sub { _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=cpanel-ccs enabled=1 monitored=1} ) };
         push @ROLLBACKS, $rb;
     }
 
-    require Cpanel::SafeRun::Object;
-    my $exit = _saferun( $lh, 'yum', qw{install -y}, @RPMS );
+    $exit = _saferun( $lh, 'yum', qw{install -y}, @RPMS );
     return _cleanup("$exit") if $exit;
     print $lh "# [INFO] Adding 'yum remove new pg version' to \@ROLLBACKS stack...\n"; 
     my $rollbck = sub { _saferun( $lh, 'yum', qw{remove -y}, @RPMS ) };
@@ -282,8 +287,8 @@ sub _real_install {
 
     if($ccs_installed && $ccs_enabled) {
         print $lh "# [INFO] Re-Enabling cpanel-ccs-calendarserver...\n";
-        require Whostmgr::Services;
-        Whostmgr::Services::enable('cpanel-ccs');
+        $exit = _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=cpanel-ccs enabled=1 monitored=1} );
+        return _cleanup("$exit") if $exit;
     }
 
     # XXX Now the postgres service appears as "disabled" for cPanel's sake. Frowny faces everywhere.
