@@ -92,7 +92,7 @@ sub _real_install {
         "postgresql$no_period_version-devel", # For CCS
     );
     # TODO: Use Cpanel::Yum::Install based module, let all that stuff handle this "for you".
-    open( my $lh, ">", $log ) or return _cleanup("255");
+    open( my $lh, ">", $log ) or return _cleanup("255", $lh);
     select $lh;
     $| = 1;
     select $lh;
@@ -105,7 +105,7 @@ sub _real_install {
         require Devel::StackTrace;
         my $trace = Devel::StackTrace->new();
         print $lh $trace->as_string(), "\n";
-        _cleanup('255');
+        _cleanup('255', $lh);
         die @_;
     };
 
@@ -120,7 +120,7 @@ sub _real_install {
         print $lh "# [INFO] Disabling postgresql during the upgrade window since it is currently enabled...\n";
         # Don't use Whostmgr::Services, as that bungles the __DIE__ overwrite.
         $exit = _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=postgresql enabled=0 monitored=0} );
-        return _cleanup("$exit") if $exit;
+        return _cleanup("$exit", $lh) if $exit;
 
         print $lh "# [INFO] Adding 're-enable postgresql' to \@ROLLBACKS stack...\n"; 
         my $rb = sub { _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=postgresql enabled=1 monitored=1} ); };
@@ -135,14 +135,14 @@ sub _real_install {
     if( $ccs_installed && $ccs_enabled ) {
         print $lh "# [INFO] cpanel-ccs-calendarserver is installed.\nDisabling the service while the upgrade is in process.\n\n";
         $exit = _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=cpanel-ccs enabled=0 monitored=0} );
-        return _cleanup("$exit") if $exit;
+        return _cleanup("$exit", $lh) if $exit;
         print $lh "# [INFO] Adding 're-enable cpanel-ccs' to \@ROLLBACKS stack...\n"; 
         my $rb = sub { _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=cpanel-ccs enabled=1 monitored=1} ) };
         push @ROLLBACKS, $rb;
     }
 
     $exit = _saferun( $lh, 'yum', qw{install -y}, @RPMS );
-    return _cleanup("$exit") if $exit;
+    return _cleanup("$exit", $lh) if $exit;
     print $lh "# [INFO] Adding 'yum remove new pg version' to \@ROLLBACKS stack...\n"; 
     my $rollbck = sub { _saferun( $lh, 'yum', qw{remove -y}, @RPMS ) };
     push @ROLLBACKS, $rollbck;
@@ -153,7 +153,7 @@ sub _real_install {
         my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('postgres');
         $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '--locale', $locale, '-E', 'UTF8', '-D', "/var/lib/pgsql/$ver2install/data/" );
     }
-    return _cleanup("$exit") if $exit;
+    return _cleanup("$exit", $lh) if $exit;
     # probably shouldn't do it this way. Whatever
     print $lh "# [INFO] Adding 'Clean up new pgdata dir' to \@ROLLBACKS stack...\n"; 
     my $rd_rllr = sub { _saferun( $lh, qw{rm -rf}, "/var/lib/pgsql/$ver2install/data" ) };
@@ -170,7 +170,7 @@ sub _real_install {
         print $lh "# [BACKUP] Backing up /usr/bin/pg_ctl to /usr/bin/pg_ctl.orig\n";
         File::Copy::cp('/usr/bin/pg_ctl','/usr/bin/pg_ctl.orig') or do {
             print $lh "Backup of /usr/bin/pg_ctl to /usr/bin/pg_ctl.orig failed: $!\n";
-            return _cleanup("255");
+            return _cleanup("255", $lh);
         };
         chmod(0755, '/usr/bin/pg_ctl.orig');
         print $lh "# [INFO] Adding 'Restore old pg_ctl process to \@ROLLBACKS stack...\n";
@@ -211,13 +211,13 @@ sub _real_install {
                 '-B', "/usr/pgsql-$ver2install/bin/",
         );
     }
-    return _cleanup("$exit") if $exit;
+    return _cleanup("$exit", $lh) if $exit;
 
 
     # Start the server.
     print $lh "# [INFO] Starting up postgresql-$ver2install...\n";
     $exit = _saferun( $lh, qw{systemctl start}, "postgresql-$ver2install" );
-    return _cleanup("$exit") if $exit;
+    return _cleanup("$exit", $lh) if $exit;
 
     if( $ccs_installed ) {
         my $ccs_pg_datadir = '/opt/cpanel-ccs/data/Data/Database/cluster';
@@ -244,7 +244,7 @@ sub _real_install {
             my $pants_on_the_ground = Cpanel::AccessIds::ReducedPrivileges->new('cpanel-ccs');
             $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/initdb", '-D', $ccs_pg_datadir, '-U', 'caldav', '--locale', $locale, '-E', 'UTF8' );
         }
-        return _cleanup("$exit") if $exit;
+        return _cleanup("$exit", $lh) if $exit;
 
         print $lh "# [INFO] Now upgrading the PG cluster for cpanel-ccs-calendarserver...\n";
         # Upgrade the DB
@@ -260,7 +260,7 @@ sub _real_install {
                 qw{-U caldav},
             );
         }
-        return _cleanup("$exit") if $exit;
+        return _cleanup("$exit", $lh) if $exit;
     }
 
     # At this point we're at the point where we don't need to restore. Just clean up.
@@ -270,25 +270,25 @@ sub _real_install {
         print $lh "# [INFO] Workaround resulted in successful start of the server. Reverting workaround changes to pg_ctl...\n\n";
         rename( '/usr/bin/pg_ctl.orig', '/usr/bin/pg_ctl' ) or do {
             print $lh "# [ERROR] Restore of /usr/bin/pg_ctl.orig to /usr/bin/pg_ctl failed: $!\n";
-            return _cleanup("255");
+            return _cleanup("255", $lh);
         };
     }
 
     print $lh "# [INFO] Now cleaning up old postgresql version...\n";
     my $svc2remove = ( $str_ver + 0 < 9.5 ) ? 'postgresql' : "postgresql-$str_ver";
     $exit = _saferun( $lh, qw{systemctl disable}, $svc2remove );
-    return _cleanup("$exit") if $exit;
+    return _cleanup("$exit", $lh) if $exit;
     $exit = _saferun( $lh, qw{yum -y remove}, $svc2remove );
-    return _cleanup("$exit") if $exit;
+    return _cleanup("$exit", $lh) if $exit;
 
     print $lh "# [INFO] Now enabling postgresql-$ver2install on startup...\n";
     $exit = _saferun( $lh, qw{systemctl enable}, "postgresql-$ver2install" );
-    return _cleanup("$exit") if $exit;
+    return _cleanup("$exit", $lh) if $exit;
 
     if($ccs_installed && $ccs_enabled) {
         print $lh "# [INFO] Re-Enabling cpanel-ccs-calendarserver...\n";
         $exit = _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=cpanel-ccs enabled=1 monitored=1} );
-        return _cleanup("$exit") if $exit;
+        return _cleanup("$exit", $lh) if $exit;
     }
 
     # XXX Now the postgres service appears as "disabled" for cPanel's sake. Frowny faces everywhere.
@@ -298,7 +298,8 @@ sub _real_install {
         print $lh "# [TODO] Actually do this!\n";
     }
 
-    return _cleanup("0");
+    local $SIG{__DIE__} = 'DEFAULT';
+    return _cleanup("0", $lh);
 }
 
 sub _saferun {
@@ -314,9 +315,11 @@ sub _saferun {
 }
 
 sub _cleanup {
-    my ( $code ) = @_;
+    my ( $code, $lh ) = @_;
 
     # Do rollbacks in reverse order
+    print $lh "# [ERROR] Encountered failure during install!\n" if $code;
+    print $lh "# [INFO]  Now executing rollbacks...\n" if( $code && @ROLLBACKS);
     foreach my $rb ( reverse @ROLLBACKS ) {
         local $@;
         eval { $rb->(); };
