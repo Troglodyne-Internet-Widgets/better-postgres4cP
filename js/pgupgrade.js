@@ -153,8 +153,10 @@ function roadRoller (resp) {
     if(obj.result === 1) {
 
         // Paste in new content
-        upgradeWell.textContent += obj.data['new_content'];
-        upgradeWell.scrollTo(0,upgradeWell.scrollHeight);
+        if(obj.data['new_content'].length > 0) {
+            upgradeWell.textContent += obj.data['new_content'];
+            upgradeWell.scrollTo(0,upgradeWell.scrollHeight);
+        }
         if(obj.data['in_progress']) {
             // Not done yet, keep going
             doAPIRequestWithCallback(
@@ -168,6 +170,7 @@ function roadRoller (resp) {
             // Do something based on the end status
             if(+obj.data['child_exit']) {
                  upgradeWell.textContent += `Installation of PostgreSQL ${window.selectedVersion} failed: Subprocess exited ${obj.data['child_exit']}`;
+                 upgradeWell.scrollTo(0,upgradeWell.scrollHeight);
                  submitBtn.textContent = 'Re-Try';
                  submitBtn.disabled = false;
                  return;

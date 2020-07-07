@@ -116,15 +116,34 @@ sub _real_install {
     require Cpanel::AccessIds::ReducedPrivileges;
     require Cpanel::SafeRun::Object;
     require Cpanel::Services::Enabled;
-    my $postgres_enabled = Cpanel::Services::Enabled::is_enabled('postgresql');
-    if( Cpanel::Services::Enabled::is_enabled('postgresql') ) {
-        print $lh "# [INFO] Disabling postgresql during the upgrade window since it is currently enabled...\n";
-        # Don't use Whostmgr::Services, as that bungles the __DIE__ overwrite.
-        $exit = _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=postgresql enabled=0 monitored=0} );
-        return _cleanup("$exit", $lh) if $exit;
 
-        print $lh "# [INFO] Adding 're-enable postgresql' to \@ROLLBACKS stack...\n"; 
-        my $rb = sub { _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=postgresql enabled=1 monitored=1} ); };
+    # FORCE UNCACHED LOAD YOU FUCKER
+    unlink '/root/.cpanel/datastore/_usr_bin_psql_--version';
+    require Cpanel::PostgresUtils;
+    my @cur_ver = ( Cpanel::PostgresUtils::get_version() );
+    my $str_ver = join( '.', @cur_ver );
+    my $postgres_enabled = 0;
+    if( $str_ver + 0 < 9.3 ) {
+        $postgres_enabled = Cpanel::Services::Enabled::is_enabled('postgresql');
+        if( Cpanel::Services::Enabled::is_enabled('postgresql') ) {
+            print $lh "# [INFO] Disabling postgresql during the upgrade window since it is currently enabled...\n";
+            # Don't use Whostmgr::Services, as that bungles the __DIE__ overwrite.
+            $exit = _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=postgresql enabled=0 monitored=0} );
+            return _cleanup("$exit", $lh) if $exit;
+
+            print $lh "# [INFO] Adding 're-enable postgresql' to \@ROLLBACKS stack...\n"; 
+            my $rb = sub {
+                _saferun( $lh, qw{/usr/local/cpanel/bin/whmapi1 configureservice service=postgresql enabled=1 monitored=1} ); 
+            };
+            push @ROLLBACKS, $rb;
+        }
+    }
+    else {
+        print $lh "# [INFO] Ensuring postgresql-$str_ver is stopped during the upgrade window...\n";
+        $exit = _saferun( $lh, qw{systemctl stop}, "postgresql-$str_ver" );
+        return _cleanup("$exit", $lh) if $exit;
+        print $lh "# [INFO] Adding 'restart postgresql-$str_ver' to \@ROLLBACKS stack...\n"; 
+        my $rb = sub { _saferun( $lh, qw{systemctl start}, "postgresql-$str_ver" ) };
         push @ROLLBACKS, $rb;
     }
 
@@ -145,7 +164,10 @@ sub _real_install {
     $exit = _saferun( $lh, 'yum', qw{install -y}, @RPMS );
     return _cleanup("$exit", $lh) if $exit;
     print $lh "# [INFO] Adding 'yum remove new pg version' to \@ROLLBACKS stack...\n"; 
-    my $rollbck = sub { _saferun( $lh, 'yum', qw{remove -y}, @RPMS ) };
+    my $rollbck = sub {
+        _saferun( $lh, 'yum', qw{remove -y}, @RPMS );
+        unlink('/root/.cpanel/datastore/_usr_bin_psql_--version');
+    };
     push @ROLLBACKS, $rollbck;
 
     # Init the DB
@@ -161,13 +183,10 @@ sub _real_install {
     push @ROLLBACKS, $rd_rllr;
 
     require File::Slurper;
+    require File::Copy;
     # Move some bullcrap out of the way if we're on old PGs
-    require Cpanel::PostgresUtils;
-    my @cur_ver = ( Cpanel::PostgresUtils::get_version() );
-    my $str_ver = join( '.', @cur_ver );
-    if( $str_ver + 0 < 9.4 ) {
-        print $lh "# [INFO] Installed version is less than 9.4 ($str_ver), Implementing workaround in pg_ctl to ensure pg_upgrade works...\n";
-        require File::Copy;
+    if( $str_ver + 0 < 9.3 ) {
+        print $lh "# [INFO] Installed version is less than 9.3 ($str_ver), Implementing workaround in pg_ctl to ensure pg_upgrade works...\n";
         print $lh "# [BACKUP] Backing up /usr/bin/pg_ctl to /usr/bin/pg_ctl.orig\n";
         File::Copy::cp('/usr/bin/pg_ctl','/usr/bin/pg_ctl.orig') or do {
             print $lh "Backup of /usr/bin/pg_ctl to /usr/bin/pg_ctl.orig failed: $!\n";
@@ -214,7 +233,6 @@ sub _real_install {
     }
     return _cleanup("$exit", $lh) if $exit;
 
-
     # Start the server.
     print $lh "# [INFO] Starting up postgresql-$ver2install...\n";
     $exit = _saferun( $lh, qw{systemctl start}, "postgresql-$ver2install" );
@@ -222,8 +240,8 @@ sub _real_install {
 
     if( $ccs_installed ) {
         my $ccs_pg_datadir = '/opt/cpanel-ccs/data/Data/Database/cluster';
-        print $lh "# [INFO] Old PG datadir is being moved to '$ccs_pg_datadir.old'...\n";
-        File::Copy::mv( $ccs_pg_datadir, "$ccs_pg_datadir.old" );
+        print $lh "# [INFO] Old PG datadir is being moved to '$ccs_pg_datadir.$str_ver'...\n";
+        File::Copy::mv( $ccs_pg_datadir, "$ccs_pg_datadir.$str_ver" );
         mkdir($ccs_pg_datadir);
         chmod( 0700, $ccs_pg_datadir );
         Cpanel::SafetyBits::Chown::safe_chown( 'cpanel-ccs', 'cpanel-ccs', $ccs_pg_datadir );
@@ -233,7 +251,7 @@ sub _real_install {
             require File::Path;
             File::Path::remove_tree($ccs_pg_datadir, { 'error' => \my $err } );
             print $lh join( "\n", @$err ) if ( $err && @$err );
-            File::Copy::mv( "$ccs_pg_datadir.old", $ccs_pg_datadir ); 
+            File::Copy::mv( "$ccs_pg_datadir.$str_ver", $ccs_pg_datadir ); 
         };
         push @ROLLBACKS, $rb;
 
@@ -254,7 +272,7 @@ sub _real_install {
             my $cd_obj = Cpanel::Chdir->new('/opt/cpanel-ccs');
 
             $exit = _saferun( $lh, "/usr/pgsql-$ver2install/bin/pg_upgrade",
-                '-d', "$ccs_pg_datadir.old",
+                '-d', "$ccs_pg_datadir.$str_ver",
                 '-D', $ccs_pg_datadir,
                 '-b', $old_bindir,
                 '-B', "/usr/pgsql-$ver2install/bin/",
@@ -289,25 +307,28 @@ sub _real_install {
     # Update alternatives. Should be fine to use --auto, as no other alternatives will exist for the installed version.
     # Create alternatives for pg_ctl, etc. as those don't get made by the RPM.
     print $lh "# [INFO] Updating alternatives to ensure the newly installed version is considered canonical...\n";
+    my %prio_map = (
+        '95' => '95',
+        '96' => '96',
+        '10' => '100',
+        '11' => '110',
+        '12' => '120',
+    );
     my @normie_alts = qw{pg_ctl initdb pg_config pg_upgrade};
     my @manual_alts = qw{clusterdb createdb createuser dropdb droplang dropuser pg_basebackup pg_dump pg_dumpall pg_restore psql};
     foreach my $alt ( @normie_alts ) {
-        my @cmd = ( qw{update-alternatives --install}, "/usr/bin/$alt", "pgsql-$alt", "/usr/pgsql-$ver2install/bin/$alt", "50" );
-        print $lh join( " ", @cmd ) . "\n";
+        my @cmd = ( qw{update-alternatives --install}, "/usr/bin/$alt", "pgsql-$alt", "/usr/pgsql-$ver2install/bin/$alt", $prio_map{$no_period_version} );
         $exit = _saferun( $lh, @cmd );
         return _cleanup("$exit", $lh) if $exit;
         @cmd = ( qw{update-alternatives --auto}, "pgsql-$alt" );
-        print $lh join( " ", @cmd ) . "\n";
         $exit = _saferun( $lh, @cmd );
         return _cleanup("$exit", $lh) if $exit;
     }
     foreach my $alt ( @manual_alts ) {
         my @cmd = ( qw{update-alternatives --auto}, "pgsql-$alt" );
-        print $lh join( " ", @cmd ) . "\n";
         $exit = _saferun( $lh, @cmd );
         return _cleanup("$exit", $lh) if $exit;
         @cmd = ( qw{update-alternatives --auto}, "pgsql-${alt}man" );
-        print $lh join( " ", @cmd ) . "\n";
         $exit = _saferun( $lh, @cmd );
         return _cleanup("$exit", $lh) if $exit;
     }
@@ -338,6 +359,7 @@ export PATH=\$PATH:/usr/pgsql-$ver2install/bin\n";
 
 sub _saferun {
     my ( $lh, $prog, @args ) = @_;
+    print $lh "# [EXEC] $prog " . join( ' ', @args ) . "\n";
     my $run_result = Cpanel::SafeRun::Object->new(
         'program' => $prog,
         'args'    => [ @args ],

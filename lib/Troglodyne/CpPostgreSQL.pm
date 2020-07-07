@@ -31,16 +31,17 @@ our %SUPPORTED_VERSIONS_MAP = (
         'EOL'      => 1668060000,
         'features' => [ 'Logical replication using publish/subscribe', 'Significant general performance improvements', 'Stronger password authentication', 'Improved monitoring and control' ],
      },
-    '11'  => {
-        'release'  => 1539838800,
-        'EOL'      => 1699509600,
-        'features' => [ 'Improvements to partitioning and parallelism', 'SQL stored procedures that support embedded transactions', 'Many other useful performance improvements' ]
-     },
-    '12'  => {
-        'release'  => 1570078800,
-        'EOL'      => 1731564000,
-        'features' => [ 'General performance improvements', 'Stored generated columns', 'Support for the SQL/JSON path language', 'New authentication features' ]
-    },
+    # Note -- The below can't actually be installed due to needing lvm-toolset-7-clang
+    #'11'  => {
+    #    'release'  => 1539838800,
+    #    'EOL'      => 1699509600,
+    #    'features' => [ 'Improvements to partitioning and parallelism', 'SQL stored procedures that support embedded transactions', 'Many other useful performance improvements' ]
+    # },
+    #'12'  => {
+    #    'release'  => 1570078800,
+    #    'EOL'      => 1731564000,
+    #    'features' => [ 'General performance improvements', 'Stored generated columns', 'Support for the SQL/JSON path language', 'New authentication features' ]
+    #},
 );
 
 # The BS that cPanel will be installing with /scripts/installpostgres
