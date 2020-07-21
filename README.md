@@ -9,13 +9,20 @@ INSTALLING
 ----------
 Two methods exist for accomplishing installs.
 ### End user (stable) installs:
+* Add the *Troglodyne* yum repository to `/etc/yum.repos.d/troglodyne`:
+```
+[troglodyne]
+name=Troglodyne Internet Widgets
+mirrorlist=https://repos.troglodyne.net/CentOS/7/$basearch/mirrorlist
+enabled=1
+```
 * Install the RPM:
-`rpm -ivh $URL_I_HAVENT_GOT_YET_FOR_THE_RPM_RELEASE_HAHAHAHA`
+`yum install BetterPostgres4cP`
 * Enjoy. There should now be a "PostgreSQL Upgrade" page within WHM now for root under the 'Plugins' section.
 * To uninstall:
-`rpm -evh BetterPostgres4cP`
-* To update to a newer version:
-`rpm -Uvh $URL_I_HAVENT_GOT_YET_ROT_THE_RPM_RELEASE_HAHAHAHAH`
+`yum remove BetterPostgres4cP`
+
+This way whenever I make a new release you'll get it via `yum update` without any real hassle.
 
 ### Developer install:
 * Clone the repository using the link in github:
@@ -34,13 +41,9 @@ If you can't find the answers you need, feel free to drop an issue in the tracke
 
 ...and last of all, see license terms.
 
-TODO
+BUGS
 ----
-* Finish install.
-* Ensure cpanel-ccs-calendarserver is compatible with all versions you can upgrade to.
-* Testing. Lots of testing. Likely compatibility shims once upgraded.
-* Copy rpmbuild artifacts to dist folder or whatever.
-* Maybe a publish rule for yum repo?
+* Once you upgrade postgres, the global cache for cPanel will no longer think PostgreSQL is installed. I am currently not aware of a way to fix this, but I am looking into it.
 
 Other Ambitions
 ---------------
