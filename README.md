@@ -5,6 +5,9 @@ This Plugin aims to bring extended support for more recent PostgreSQL versions t
 The approach is very similar to what already exists for MySQL -- we will be installing from
 community repositories which already build the server for CentOS.
 
+If you like this plugin, consider sending a a few dollars this way:
+https://paypal.me/troglodyne
+
 INSTALLING
 ----------
 Two methods exist for accomplishing installs.
