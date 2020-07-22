@@ -8,6 +8,10 @@ community repositories which already build the server for CentOS.
 If you like this plugin, consider sending a a few dollars this way:
 https://paypal.me/troglodyne
 
+PREREQUISITES
+-------------
+See https://github.com/Troglodyne-Internet-Widgets/troglodyne-api
+
 INSTALLING
 ----------
 Two methods exist for accomplishing installs.
