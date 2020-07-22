@@ -9,7 +9,7 @@ pwd  = $(shell pwd)
 .PHONY: all install register test uninstall rpm test-depend
 all: install register
 
-install: test
+install:
 	mkdir -p $(DESTDIR)$(ulc)$(tmpl)/ui $(DESTDIR)$(ulc)$(tmpl)/config $(DESTDIR)$(ulc)$(cgi)/js $(DESTDIR)$(ulc)$(cgi)/img $(DESTDIR)$(vcp)/Troglodyne/CGI $(DESTDIR)$(vcp)/Troglodyne/API $(DESTDIR)$(vca) $(DESTDIR)$(vct)/troglodyne/config $(DESTDIR)$(ulc)/whostmgr/docroot/addon_plugins
 	install $(pwd)/templates/ui/pgupgrade.tmpl $(DESTDIR)$(ulc)$(tmpl)
 	install $(pwd)/templates/config/main.default $(DESTDIR)$(vct)/troglodyne/config
@@ -17,30 +17,24 @@ install: test
 	install $(pwd)/img/troglophant.png $(DESTDIR)$(ulc)$(cgi)/img
 	install $(pwd)/img/troglophant.png $(DESTDIR)$(ulc)/whostmgr/docroot/addon_plugins
 	install $(pwd)/cgi/pgupgrade.cgi $(DESTDIR)$(ulc)$(cgi)
-	install $(pwd)/cgi/api.cgi $(DESTDIR)$(ulc)$(cgi)
 	install $(pwd)/lib/Troglodyne/CGI/PgUpgrade.pm $(DESTDIR)$(vcp)/Troglodyne/CGI
-	install $(pwd)/lib/Troglodyne/CGI/API.pm $(DESTDIR)$(vcp)/Troglodyne/CGI
 	install $(pwd)/lib/Troglodyne/CpPostgreSQL.pm $(DESTDIR)$(vcp)/Troglodyne
 	install $(pwd)/lib/Troglodyne/API/Postgres.pm $(DESTDIR)$(vcp)/Troglodyne/API
-	install $(pwd)/lib/Troglodyne/CGI.pm $(DESTDIR)$(vcp)/Troglodyne
-	install $(pwd)/plugin/troglodyne_api.conf $(DESTDIR)$(vca)
 	install $(pwd)/plugin/better_postgres.conf $(DESTDIR)$(vca)
 	chmod 0755 $(DESTDIR)$(vca)
 	chmod +x $(DESTDIR)$(ulc)$(cgi)/pgupgrade.cgi
-	chmod +x $(DESTDIR)$(ulc)$(cgi)/api.cgi
 
 register:
-	/usr/local/cpanel/bin/register_appconfig ./plugin/better_postgres.conf
-	/usr/local/cpanel/bin/register_appconfig ./plugin/troglodyne_api.conf
+	$(ulc)/bin/register_appconfig ./plugin/better_postgres.conf
 
 uninstall:
-	/usr/local/cpanel/bin/unregister_appconfig troglodyne_api
-	/usr/local/cpanel/bin/unregister_appconfig better_postgres
-	rm -rf /var/cpanel/perl/Troglodyne
-	rm -rf /var/cpanel/templates/troglodyne
-	rm -rf /usr/local/cpanel/whostmgr/docroot/templates/troglodyne
-	rm -rf /usr/local/cpanel/whostmgr/docroot/cgi/troglodyne
-	rm -f /usr/local/cpanel/whostmgr/docroot/addon_plugins/troglophant.png
+	$(ulc)/bin/unregister_appconfig better_postgres
+	rm -f $(vcp)/Troglodyne/CpPostgreSQL.pm
+	rm -f $(vcp)/Troglodyne/API/Postgres.pm
+	rm -rf $(vct)/troglodyne
+	rm -rf $(ulc)$(tmpl)
+	rm -f $(ulc)$(cgi)/pgupgrade.cgi
+	rm -f $(ulc)/whostmgr/docroot/addon_plugins/troglophant.png
 
 
 test-depend:
