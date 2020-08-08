@@ -313,7 +313,7 @@ sub _real_install {
         '11' => '110',
         '12' => '120',
     );
-    my @normie_alts = qw{pg_ctl initdb pg_config pg_upgrade};
+    my @normie_alts = qw{pg_ctl initdb pg_config pg_upgrade postmaster};
     my @manual_alts = qw{clusterdb createdb createuser dropdb droplang dropuser pg_basebackup pg_dump pg_dumpall pg_restore psql};
     foreach my $alt ( @normie_alts ) {
         my @cmd = ( qw{update-alternatives --install}, "/usr/bin/$alt", "pgsql-$alt", "/usr/pgsql-$ver2install/bin/$alt", $prio_map{$no_period_version} );
