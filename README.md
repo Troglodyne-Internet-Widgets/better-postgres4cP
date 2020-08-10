@@ -16,14 +16,19 @@ INSTALLING
 ----------
 Two methods exist for accomplishing installs.
 ### End user (stable) installs:
-* Add the *Troglodyne* yum repository to `/etc/yum.repos.d/troglodyne`:
+* Add the *Troglodyne* yum repository to `/etc/yum.repos.d/troglodyne.repo`:
 ```
 [troglodyne]
 name=Troglodyne Internet Widgets
 mirrorlist=https://repos.troglodyne.net/CentOS/7/$basearch/mirrorlist
 enabled=1
+gpgcheck=0
 ```
+Note that gpgcheck=0 for now, as I have not signed this RPM.
+For now I'm using https for all mirrors to compensate for this.
+
 * Install the RPM:
+
 `yum install BetterPostgres4cP`
 * Enjoy. There should now be a "PostgreSQL Upgrade" page within WHM now for root under the 'Plugins' section.
 * To uninstall:
