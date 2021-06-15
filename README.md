@@ -1,3 +1,11 @@
+NOTE: DEFUNCT
+=============
+There will be no updates to this for quite some time, if ever.
+As long as one of the members of Troglodyne works for cPanel, this project is more or less permanently on hold due to the employer's stated preference.
+If anyone wants to take this and run with it, they are more or less welcome to (see LICENSE.md).
+
+----------------------------------
+
 Better PostgreSQL for cPanel & WHM
 ==================================
 
